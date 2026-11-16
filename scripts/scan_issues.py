@@ -13,7 +13,7 @@ from concurrent.futures import TimeoutError as FuturesTimeout
 from pathlib import Path
 
 TOP = 5_000
-DEADLINE = 300  # seconds across all packages
+DEADLINE = 180  # seconds across all packages (the scan job's cap leaves little room for optional passes)
 GAPS = {"source", "missing"}
 WORKERS = 8
 TIMEOUT = 10
@@ -38,7 +38,7 @@ def fetch_pypi_metadata(
             data = json.load(resp)
             info = data.get("info") or {}
             return info.get("project_urls"), info.get("home_page")
-    except (OSError, ValueError, TimeoutError):
+    except Exception:  # noqa: BLE001 - one bad response (IncompleteRead, a non-dict body) means no link, never no step
         return None, None
 
 
@@ -82,14 +82,17 @@ def scan(
                 for package in candidates
             }
             # Past the deadline the packages not yet answered get no link (never a guessed one) and the
-            # lookups still queued are cancelled, so the step ends well inside its timeout.
+            # lookups still queued are cancelled; only those in flight (TIMEOUT each) hold the exit.
             for future in as_completed(futures, timeout=max(0.0, deadline - time.monotonic())):
                 package = futures[future]
                 try:
                     urls, home = future.result()
-                except (OSError, ValueError, TimeoutError):
+                    # wheelgap 0.12.0's urlsplit raises ValueError on a bracketed host ("https://[x"): skip the
+                    # package, as for any metadata it can't read, rather than lose every link tonight.
+                    url = extract(urls, home)
+                except Exception:  # noqa: BLE001
                     continue
-                if url := extract(urls, home):
+                if url:
                     package["issues_url"] = url
                     found += 1
         except FuturesTimeout:

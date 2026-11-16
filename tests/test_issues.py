@@ -119,6 +119,47 @@ def test_scan_issues_stops_at_the_deadline(tmp_path):
     assert "issues_url" not in updated["packages"][1]
 
 
+def test_scan_issues_one_bad_package_costs_only_its_own_link(tmp_path):
+    # A dropped connection (IncompleteRead isn't an OSError) or metadata urlsplit can't read ("https://[x")
+    # must not stop the step: the other packages still get their links.
+    import http.client
+
+    data = snapshot(
+        [
+            package(1, "dropped", ["source", "wheel", "wheel"]),
+            package(2, "bracketed", ["source", "wheel", "wheel"]),
+            package(3, "fine", ["source", "wheel", "wheel"]),
+        ]
+    )
+    scan_file = write_scan(tmp_path / "coverage.json", data)
+
+    def fetch(name, timeout):
+        if name == "dropped":
+            raise http.client.IncompleteRead(b"{")
+        return {"Issues": f"https://example.com/{name}/issues"}, None
+
+    def extract(urls, home):
+        if "bracketed" in urls["Issues"]:
+            raise ValueError("Invalid IPv6 URL")
+        return urls["Issues"]
+
+    scan_issues.scan(scan_file, top=10, deadline_seconds=10, fetcher=fetch, extract=extract)
+    updated = json.loads(scan_file.read_text(encoding="utf-8"))
+    assert "issues_url" not in updated["packages"][0]
+    assert "issues_url" not in updated["packages"][1]
+    assert updated["packages"][2]["issues_url"] == "https://example.com/fine/issues"
+
+
+def test_fetch_pypi_metadata_never_raises(monkeypatch):
+    import http.client
+
+    def boom(*a, **k):
+        raise http.client.IncompleteRead(b"")
+
+    monkeypatch.setattr(scan_issues.urllib.request, "urlopen", boom)
+    assert scan_issues.fetch_pypi_metadata("demo") == (None, None)
+
+
 def test_scan_issues_refuses_invalid_schema(tmp_path):
     data = snapshot([package(1, "demo", ["source", "wheel", "wheel"])])
     data["schema"] = 2
