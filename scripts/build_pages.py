@@ -391,7 +391,7 @@ def lab_html(builds: list[dict]) -> str:
         pill = LAB_PILL.get(v["kind"], "s-unknown")
         label = LAB_LABEL.get(v["kind"], v["kind"])
         where = f"{e(str(r.get('runner', '')))}, Python {e(str(r.get('python', '')))}, {e(str(r.get('date', '')))}"
-        if log := r.get("log"):
+        if (log := r.get("log")) and isinstance(log, str) and log.startswith("https://"):
             where += f' · <a href="{e(log)}">run</a>'
         detail = ""
         if excerpt := r.get("excerpt"):

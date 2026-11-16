@@ -560,6 +560,33 @@ class BuildLabVerdictAndPage(unittest.TestCase):
         self.assertNotIn("<tool & more>", html_page)
         self.assertNotIn("<script>alert", html_page)
 
+    def test_page_validates_log_url_scheme(self):
+        scan = self._make_scan([
+            {"rank": 1, "name": "demo", "version": "1.0.0", "pure": False, "error": None, "results": ["source", "wheel", "wheel"]},
+        ])
+        builds = [
+            {
+                "target": "3.14 win-arm64",
+                "version": "1.0.0",
+                "outcome": "built",
+                "seconds": 87,
+                "wheel": "demo-cp314-cp314-win_arm64.whl",
+                "extensions": 1,
+                "import": "ok",
+                "gil": None,
+                "reason": None,
+                "excerpt": "",
+                "toolchains": ["msvc"],
+                "runner": "windows-11-arm",
+                "python": "3.14.0",
+                "date": "2026-11-15",
+                "log": "javascript:alert(1)",
+            }
+        ]
+        html_page = build_pages.page(scan["packages"][0], scan, "3.14", builds=builds)
+        self.assertNotIn("javascript:", html_page)
+        self.assertNotIn(">run</a>", html_page)
+
 
 if __name__ == "__main__":
     unittest.main()
