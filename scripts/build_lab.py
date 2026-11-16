@@ -622,17 +622,17 @@ def problems(result: object, job: dict) -> list[str]:
     return out
 
 
-def _mins(seconds: float | None) -> str:
-    s = seconds or 0
-    return f"{s} s" if s < 90 else f"{round(s / 60)} min"
+def _mins(s: int) -> str:
+    # Halves round up, as JS Math.round does (Python's round() would give 150 s as "2 min", logic.js "3 min").
+    return f"{s} s" if s < 90 else f"{(s + 30) // 60} min"
 
 
 def lab_verdict(r: dict) -> dict[str, str]:
-    """Port of site/logic.js:labVerdict(). A wheel with no compiled extension module is never called a working compiled build."""
+    """Port of site/logic.js:labVerdict(); tests/lab_verdict_cases.json holds the cases both must pass. A wheel with
+    no compiled extension module is never called a working compiled build."""
     outcome = r.get("outcome")
     reason = r.get("reason")
-    seconds = r.get("seconds") or 0
-    m = _mins(seconds)
+    m = _mins(int(r.get("seconds") or 0))
 
     if outcome == "timeout":
         return {"kind": "slow", "text": f"didn't finish building in {m}"}
@@ -650,7 +650,7 @@ def lab_verdict(r: dict) -> dict[str, str]:
         return {"kind": "broken", "text": f"builds in {m}, but doesn't import"}
     if not r.get("extensions"):
         wheel = r.get("wheel") or ""
-        if re.search(r"-none-any$", wheel):
+        if wheel.endswith("-none-any"):
             return {
                 "kind": "pure",
                 "text": f"builds in {m} as pure Python, with no compiled extension module (if it has an optional one, that was skipped)",

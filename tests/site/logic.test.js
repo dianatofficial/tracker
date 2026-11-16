@@ -140,6 +140,11 @@ test("build lab verdicts never call a wheel without an extension module a workin
   assert.equal(v({ outcome: "timeout", seconds: 2400 }).text, "didn't finish building in 40 min");
 });
 
+test("build lab verdicts match the cases scripts/build_lab.py's port also runs", () => {
+  const { base, cases } = JSON.parse(require("node:fs").readFileSync(path.join(__dirname, "..", "lab_verdict_cases.json"), "utf8"));
+  for (const c of cases) assert.deepEqual(logic.labVerdict({ ...base, ...c.record }), { kind: c.kind, text: c.text }, JSON.stringify(c.record));
+});
+
 test("isPackageName accepts PEP 508 names (#57)", () => {
   for (const name of ["numpy", "zope.interface", "A_b-c", "x", "Pillow", "backports.zoneinfo", "a1"]) {
     assert.equal(logic.isPackageName(name), true, name);

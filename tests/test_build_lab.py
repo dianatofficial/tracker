@@ -376,62 +376,14 @@ class NewestPython(unittest.TestCase):
 
 
 class BuildLabVerdictAndPage(unittest.TestCase):
-    def test_lab_verdict_parity_with_logic_js(self):
-        base = {
-            "outcome": "built",
-            "seconds": 87,
-            "wheel": "x-cp314-cp314-any.whl",
-            "extensions": 1,
-            "import": "ok",
-            "gil": None,
-            "reason": None,
-        }
-
-        def v(extra):
-            d = dict(base)
-            d.update(extra)
-            return build_lab.lab_verdict(d)
-
-        self.assertEqual(v({}), {"kind": "works", "text": "builds from source in 87 s and imports"})
-        self.assertEqual(
-            v({"gil": "kept-off", "seconds": 289}),
-            {"kind": "works", "text": "builds from source in 5 min and imports, GIL stays off"},
-        )
-        self.assertEqual(v({"gil": "re-enabled"})["kind"], "gil")
-        self.assertEqual(
-            v({"gil": "re-enabled"})["text"],
-            "builds in 87 s, but importing it turns the GIL back on",
-        )
-        self.assertEqual(v({"extensions": 0, "wheel": "py3-none-any"})["kind"], "pure")
-        self.assertIn(
-            "as pure Python, with no compiled extension module (if it has an optional one, that was skipped)",
-            v({"extensions": 0, "wheel": "py3-none-any"})["text"],
-        )
-        self.assertEqual(v({"extensions": 0})["kind"], "partial")
-        self.assertEqual(
-            v({"extensions": 0})["text"],
-            "builds in 87 s, but with no compiled extension module",
-        )
-        self.assertEqual(v({"import": "failed"})["kind"], "broken")
-        self.assertEqual(v({"import": "failed"})["text"], "builds in 87 s, but doesn't import")
-        self.assertEqual(v({"import": "deps-failed"})["kind"], "broken")
-        self.assertEqual(
-            v({"import": "deps-failed"})["text"],
-            "builds in 87 s, but its dependencies don't install",
-        )
-        self.assertEqual(
-            v({"outcome": "failed", "reason": "needs OpenSSL", "import": None, "wheel": None, "extensions": None}),
-            {"kind": "fails", "text": "fails to build: needs OpenSSL"},
-        )
-        self.assertEqual(v({"outcome": "failed", "reason": "other"}), {"kind": "fails", "text": "fails to build"})
-        self.assertEqual(
-            v({"outcome": "failed", "reason": "unsupported platform"}),
-            {"kind": "unsupported", "text": "the package doesn't support this platform (its own build says so)"},
-        )
-        self.assertEqual(
-            v({"outcome": "timeout", "seconds": 2400}),
-            {"kind": "slow", "text": "didn't finish building in 40 min"},
-        )
+    def test_lab_verdict_matches_the_cases_logic_js_runs(self):
+        # The same file tests/site/logic.test.js runs against labVerdict(), so the two can't drift.
+        cases = json.loads((Path(__file__).parent / "lab_verdict_cases.json").read_text(encoding="utf-8"))
+        for c in cases["cases"]:
+            with self.subTest(c["record"]):
+                self.assertEqual(
+                    build_lab.lab_verdict({**cases["base"], **c["record"]}), {"kind": c["kind"], "text": c["text"]}
+                )
 
     def _make_scan(self, packages):
         targets = [
@@ -446,6 +398,20 @@ class BuildLabVerdictAndPage(unittest.TestCase):
             "targets": targets,
             "packages": packages,
         }
+
+    def test_lab_section_only_lists_cells_that_still_say_source(self):
+        # A wheel uploaded for win-arm64 since the lab ran: that cell says wheel now, so its old result isn't listed.
+        scan = self._make_scan([
+            {"rank": 1, "name": "demo", "version": "1.0.0", "pure": False, "error": None,
+             "results": ["wheel", "source", "wheel"]},
+        ])
+        result = {"version": "1.0.0", "outcome": "failed", "seconds": 30, "wheel": None, "extensions": None,
+                  "import": None, "gil": None, "reason": "needs OpenSSL", "excerpt": "", "toolchains": [],
+                  "runner": "r", "python": "3.14.0", "date": "2026-11-15", "log": ""}
+        builds = [{**result, "target": "3.14 win-arm64"}, {**result, "target": "3.14 macos-arm64"}]
+        html_page = build_pages.page(scan["packages"][0], scan, "3.14", builds=builds)
+        self.assertIn("<th scope=\"row\">3.14 macos-arm64</th>", html_page)
+        self.assertNotIn("<th scope=\"row\">3.14 win-arm64</th>", html_page)
 
     def test_page_shows_build_lab_verdict_on_source_cell(self):
         scan = self._make_scan([

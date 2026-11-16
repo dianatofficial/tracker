@@ -523,7 +523,10 @@ def page(
         shown, canonical(name), gap_platforms(package, targets), str(scan["generated"])[:10], note_file
     )
     install_section = install_html(package.get("install", {}))
-    lab_section = lab_html(current_builds)
+    # Only where the cell still says source: a wheel uploaded since the lab ran (or a target the scan dropped) makes
+    # that result old news, not something to show.
+    source_labels = {t["label"] for t, st in zip(targets, package["results"]) if st == "source"}
+    lab_section = lab_html([r for r in current_builds if r.get("target") in source_labels])
     return f"""<!doctype html>
 <html lang="en">
 <head>

@@ -1,0 +1,135 @@
+{
+ "_comment": "Build lab verdicts that site/logic.js labVerdict() and scripts/build_lab.py lab_verdict() must both give: each case is base with record's fields replaced. Run by tests/site/logic.test.js and tests/test_build_lab.py.",
+ "base": {
+  "outcome": "built",
+  "seconds": 87,
+  "wheel": "cp314-cp314-win_arm64",
+  "extensions": 1,
+  "import": "ok",
+  "gil": null,
+  "reason": null
+ },
+ "cases": [
+  {
+   "record": {},
+   "kind": "works",
+   "text": "builds from source in 87 s and imports"
+  },
+  {
+   "record": {
+    "seconds": 89
+   },
+   "kind": "works",
+   "text": "builds from source in 89 s and imports"
+  },
+  {
+   "record": {
+    "seconds": 90
+   },
+   "kind": "works",
+   "text": "builds from source in 2 min and imports"
+  },
+  {
+   "record": {
+    "seconds": 150
+   },
+   "kind": "works",
+   "text": "builds from source in 3 min and imports"
+  },
+  {
+   "record": {
+    "gil": "kept-off",
+    "seconds": 289
+   },
+   "kind": "works",
+   "text": "builds from source in 5 min and imports, GIL stays off"
+  },
+  {
+   "record": {
+    "gil": "re-enabled"
+   },
+   "kind": "gil",
+   "text": "builds in 87 s, but importing it turns the GIL back on"
+  },
+  {
+   "record": {
+    "extensions": 0,
+    "wheel": "py3-none-any"
+   },
+   "kind": "pure",
+   "text": "builds in 87 s as pure Python, with no compiled extension module (if it has an optional one, that was skipped)"
+  },
+  {
+   "record": {
+    "extensions": 0
+   },
+   "kind": "partial",
+   "text": "builds in 87 s, but with no compiled extension module"
+  },
+  {
+   "record": {
+    "import": "failed"
+   },
+   "kind": "broken",
+   "text": "builds in 87 s, but doesn't import"
+  },
+  {
+   "record": {
+    "import": "deps-failed"
+   },
+   "kind": "broken",
+   "text": "builds in 87 s, but its dependencies don't install"
+  },
+  {
+   "record": {
+    "outcome": "failed",
+    "reason": "needs OpenSSL",
+    "import": null,
+    "wheel": null,
+    "extensions": null
+   },
+   "kind": "fails",
+   "text": "fails to build: needs OpenSSL"
+  },
+  {
+   "record": {
+    "outcome": "failed",
+    "reason": "other"
+   },
+   "kind": "fails",
+   "text": "fails to build"
+  },
+  {
+   "record": {
+    "outcome": "failed",
+    "reason": "unsupported platform"
+   },
+   "kind": "unsupported",
+   "text": "the package doesn't support this platform (its own build says so)"
+  },
+  {
+   "record": {
+    "outcome": "timeout",
+    "seconds": 2400
+   },
+   "kind": "slow",
+   "text": "didn't finish building in 40 min"
+  },
+  {
+   "record": {
+    "outcome": "timeout",
+    "seconds": 270
+   },
+   "kind": "slow",
+   "text": "didn't finish building in 5 min"
+  },
+  {
+   "record": {
+    "outcome": "timeout",
+    "seconds": 630
+   },
+   "kind": "slow",
+   "text": "didn't finish building in 11 min"
+  }
+ ]
+}
