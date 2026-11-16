@@ -106,7 +106,7 @@ def build(
             ],
             "builds": sorted(({k: r[k] for k in BUILD_FIELDS} for r in lab.get(name, [])), key=lambda r: r["target"]),
         }
-        for key in ("install", "way_out"):
+        for key in ("install", "way_out", "issues_url"):
             if key in p:
                 entry[key] = p[key]
         write_json(out / f"{name}.json", entry)

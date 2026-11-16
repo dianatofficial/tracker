@@ -18,10 +18,16 @@ import json
 import re
 import sys
 from pathlib import Path
-from urllib.parse import quote
+from urllib.parse import quote, urlsplit
 
 if __package__:  # imported as scripts.build_pages (the tests)
-    from . import build_badges, build_campaigns, check_notes, install_results, pyodide_locks
+    from . import (
+        build_badges,
+        build_campaigns,
+        check_notes,
+        install_results,
+        pyodide_locks,
+    )
 else:  # run as python scripts/build_pages.py
     import build_badges
     import build_campaigns
@@ -42,6 +48,18 @@ KIND_TEXT = {
 }
 GAP = ("source", "missing")  # not `bundled`: Pyodide's own build installs
 SCHEME_RE = re.compile(r"^https://", re.IGNORECASE)  # shown without it; the checker allows only https
+
+
+def valid_issues_url(url: object) -> bool:
+    """An https:// URL with a host, printable ASCII only, no spaces or control characters, and no user@ part."""
+    if not isinstance(url, str) or not url.isascii() or not url.isprintable() or " " in url:
+        return False
+    try:
+        parts = urlsplit(url)
+        return parts.scheme == "https" and bool(parts.hostname) and "@" not in parts.netloc
+    except ValueError:
+        return False
+
 
 # Same order and names as PLATFORM_NAMES in site/app.js.
 PLATFORM_NAMES = {
@@ -422,6 +440,14 @@ def page(
     why = f'\n      <p class="sub" style="margin:12px 0 0">Why? <code>{e(explain)}</code></p>' if explain else ""
     if not package.get("error") and "bundled" in package["results"]:
         why = f'\n      <p class="sub" style="margin:12px 0 0">{e(BUNDLED_NOTE)}</p>{why}'
+    ask = ""
+    if (
+        not package.get("error")
+        and any(r in GAP for r in package.get("results", []))
+        and (issues_url := package.get("issues_url"))
+        and valid_issues_url(issues_url)
+    ):
+        ask = f'\n      <p class="sub" style="margin:12px 0 0">No wheel for your platform? Ask the maintainers: <a href="{e(issues_url)}">{e(issues_url)}</a></p>'
     shown = check_notes.current(notes or [], package, targets)
     notes_section = notes_html(
         shown, canonical(name), gap_platforms(package, targets), str(scan["generated"])[:10], note_file
@@ -456,7 +482,7 @@ def page(
         <tbody>
 {rows}
         </tbody>
-      </table></div>{why}
+      </table></div>{ask}{why}
     </div>
 {install_section}{notes_section}    <section>
       <h2>Badge for your README</h2>

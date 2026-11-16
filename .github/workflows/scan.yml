@@ -90,6 +90,11 @@ jobs:
         continue-on-error: true
         timeout-minutes: 7
         run: uv run --no-project --with "$WHEELGAP_INSTALL" python scripts/scan_way_out.py data/coverage.json
+      - name: Add issue trackers for gaps
+        # Extra data. A slow or unavailable index must still leave the night's scan publishable.
+        continue-on-error: true
+        timeout-minutes: 7
+        run: uv run --no-project python scripts/scan_issues.py data/coverage.json
       - name: Update history
         run: python3 scripts/update_history.py data/coverage.json data/history.json
       - name: Record the wheels gained and lost

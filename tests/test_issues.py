@@ -1,0 +1,342 @@
+"""Tests for issue tracker URLs: extraction, refusals, scan pass, page rendering and package lookup."""
+
+import json
+
+import pytest
+from scripts import build_lookup, build_pages, scan_issues
+
+
+def target(platform):
+    return {
+        "label": f"3.14 {platform}",
+        "python": "3.14",
+        "platform": platform,
+        "glibc": "2.31",
+        "musl": "1.2",
+        "macos": "13.0",
+    }
+
+
+def package(rank, name, statuses, **extra):
+    return {
+        "rank": rank,
+        "name": name,
+        "version": "1.0",
+        "pure": False,
+        "error": None,
+        "results": statuses,
+        **extra,
+    }
+
+
+def snapshot(packages):
+    return {
+        "schema": 1,
+        "generated": "2026-11-16T03:17:00Z",
+        "wheelgap": "0.9.0",
+        "targets": [target("win-arm64"), target("macos-arm64"), target("linux-x86_64")],
+        "packages": packages,
+    }
+
+
+def write_scan(path, data):
+    path.write_text(json.dumps(data), encoding="utf-8")
+    return path
+
+
+def test_extract_issues_url_issue_tracker_keys():
+    assert (
+        scan_issues.extract_issues_url({"Issues": "https://github.com/org/repo/issues"})
+        == "https://github.com/org/repo/issues"
+    )
+    assert (
+        scan_issues.extract_issues_url(
+            {"Bug Tracker": "https://bugs.example.com/project"}
+        )
+        == "https://bugs.example.com/project"
+    )
+    assert (
+        scan_issues.extract_issues_url(
+            {"tracker": "https://tracker.debian.org/pkg/demo"}
+        )
+        == "https://tracker.debian.org/pkg/demo"
+    )
+    assert (
+        scan_issues.extract_issues_url({"Bugs": "https://github.com/org/repo/issues"})
+        == "https://github.com/org/repo/issues"
+    )
+
+
+@pytest.mark.parametrize(
+    "label",
+    [
+        "Issue-Tracker",
+        "Bug-Tracker",
+        "bugtracker",
+        "issue_tracker",
+        "GitHub: issues",
+        "ISSUES ",
+        "Bug Reports",
+        "Bug",
+    ],
+)
+def test_extract_issues_url_normalises_labels(label):
+    url = "https://github.com/org/repo/issues"
+    assert (
+        scan_issues.extract_issues_url(
+            {label: url, "Documentation": "https://docs.example.com"}
+        )
+        == url
+    )
+
+
+def test_extract_issues_url_preference_order():
+    urls = {
+        "Tracker": "https://tracker.example.com/demo",
+        "Issue_Tracker": "https://bugs.example.com/project",
+    }
+    assert scan_issues.extract_issues_url(urls) == "https://bugs.example.com/project"
+
+
+def test_extract_issues_url_github_fallback():
+    assert (
+        scan_issues.extract_issues_url({"Source": "https://github.com/org/repo"})
+        == "https://github.com/org/repo/issues"
+    )
+    assert (
+        scan_issues.extract_issues_url(
+            {"Repository": "https://github.com/org/repo.git"}
+        )
+        == "https://github.com/org/repo/issues"
+    )
+    assert (
+        scan_issues.extract_issues_url(None, homepage="https://github.com/org/repo")
+        == "https://github.com/org/repo/issues"
+    )
+    assert (
+        scan_issues.extract_issues_url({"Homepage": "https://www.github.com/org/repo/"})
+        == "https://github.com/org/repo/issues"
+    )
+
+
+def test_extract_issues_url_refuses_non_https():
+    assert (
+        scan_issues.extract_issues_url({"Issues": "http://github.com/org/repo/issues"})
+        is None
+    )
+    assert (
+        scan_issues.extract_issues_url(
+            {"Bug Tracker": "http://bugs.example.com/project"}
+        )
+        is None
+    )
+    assert (
+        scan_issues.extract_issues_url({"Source": "http://github.com/org/repo"}) is None
+    )
+    assert (
+        scan_issues.extract_issues_url({"Issues": "ftp://files.example.com/bugs"})
+        is None
+    )
+    assert scan_issues.extract_issues_url({"Issues": "javascript:alert(1)"}) is None
+
+
+def test_extract_issues_url_refuses_userinfo():
+    assert (
+        scan_issues.extract_issues_url({"Issues": "https://github.com@evil.example/x"})
+        is None
+    )
+    assert (
+        scan_issues.extract_issues_url(
+            {"Issues": "https://user:pass@bugs.example.com/"}
+        )
+        is None
+    )
+    assert (
+        scan_issues.extract_issues_url(
+            {"Source": "https://github.com@evil.example/org/repo"}
+        )
+        is None
+    )
+
+
+def test_extract_issues_url_refuses_control_characters_and_spaces():
+    for bad in (
+        "https://github.com/org/repo/issues\x1b[2J",
+        "https://bugs.example.com/\x07",
+        "https://ex.com/a\nb",
+        "https://ex.com/a\rb",
+        "https://ex.com/a\tb",
+        "https://ex.com/a b",
+        "https://ex.com/\x00null",
+        "https://ex.com/\u202eevil",
+    ):
+        assert scan_issues.extract_issues_url({"Issues": bad}) is None, bad
+        assert scan_issues.extract_issues_url({"Source": bad}) is None, bad
+
+
+def test_extract_issues_url_non_github_fallback_ignored():
+    assert (
+        scan_issues.extract_issues_url({"Source": "https://gitlab.com/org/repo"})
+        is None
+    )
+    assert (
+        scan_issues.extract_issues_url({"Homepage": "https://example.com/not-github"})
+        is None
+    )
+    assert (
+        scan_issues.extract_issues_url(None, homepage="https://example.com/blog")
+        is None
+    )
+
+
+def test_extract_issues_url_empty_or_partial_labels():
+    assert scan_issues.extract_issues_url({}) is None
+    assert scan_issues.extract_issues_url(None, None) is None
+    assert (
+        scan_issues.extract_issues_url(
+            {"Known issues": "https://docs.example.com/known-issues"}
+        )
+        is None
+    )
+
+
+def test_scan_issues_populates_only_packages_with_gaps(tmp_path):
+    data = snapshot(
+        [
+            package(1, "needs-wheel", ["source", "missing", "wheel"]),
+            package(2, "has-wheel", ["wheel", "wheel", "wheel"]),
+            package(3, "errored", ["source", "wheel", "wheel"], error="scan failed"),
+            package(
+                4,
+                "no-issues-url",
+                ["source", "wheel", "wheel"],
+                issues_url="https://stale.example/issues",
+            ),
+        ]
+    )
+    scan_file = write_scan(tmp_path / "coverage.json", data)
+
+    metadata = {
+        "needs-wheel": ({"Issues": "https://github.com/org/needs-wheel/issues"}, None),
+        "has-wheel": ({"Issues": "https://github.com/org/has-wheel/issues"}, None),
+        "no-issues-url": ({"Homepage": "https://example.com"}, None),
+    }
+
+    def mock_fetch(name, timeout):
+        return metadata.get(name, (None, None))
+
+    scan_issues.scan(scan_file, top=10, deadline_seconds=10, fetcher=mock_fetch)
+    updated = json.loads(scan_file.read_text(encoding="utf-8"))
+
+    assert (
+        updated["packages"][0]["issues_url"]
+        == "https://github.com/org/needs-wheel/issues"
+    )
+    assert "issues_url" not in updated["packages"][1]
+    assert "issues_url" not in updated["packages"][2]
+    # Stale issues_url popped because no issues URL was found
+    assert "issues_url" not in updated["packages"][3]
+
+
+def test_scan_issues_refuses_invalid_schema(tmp_path):
+    data = snapshot([package(1, "demo", ["source", "wheel", "wheel"])])
+    data["schema"] = 2
+    scan_file = write_scan(tmp_path / "coverage.json", data)
+    with pytest.raises(ValueError, match="expected coverage schema 1"):
+        scan_issues.scan(scan_file)
+
+
+def test_package_page_renders_maintainer_link_for_gaps(tmp_path):
+    url = "https://github.com/org/demo/issues?q=is%3Aissue&sort=created"
+    data = snapshot(
+        [
+            package(1, "demo", ["source", "missing", "wheel"], issues_url=url),
+            package(2, "nowheels-noissues", ["source", "wheel", "wheel"]),
+            package(
+                3,
+                "allwheels-withissues",
+                ["wheel", "wheel", "wheel"],
+                issues_url="https://github.com/org/all/issues",
+            ),
+            package(
+                4,
+                "badurl",
+                ["source", "wheel", "wheel"],
+                issues_url="http://insecure.example/issues",
+            ),
+            package(
+                5,
+                "userinfourl",
+                ["source", "wheel", "wheel"],
+                issues_url="https://github.com@evil.example/issues",
+            ),
+            package(
+                6,
+                "controlcharurl",
+                ["source", "wheel", "wheel"],
+                issues_url="https://github.com/org/repo/issues\n",
+            ),
+        ]
+    )
+    scan_file = write_scan(tmp_path / "coverage.json", data)
+    site = tmp_path / "site"
+    build_pages.build(scan_file, site, root=tmp_path)
+
+    # 1. Package with gap and valid issues_url: link rendered with proper HTML escaping
+    demo_page = (site / "p" / "demo" / "index.html").read_text(encoding="utf-8")
+    assert "No wheel for your platform? Ask the maintainers:" in demo_page
+    assert (
+        'href="https://github.com/org/demo/issues?q=is%3Aissue&amp;sort=created"'
+        in demo_page
+    )
+    assert (
+        ">https://github.com/org/demo/issues?q=is%3Aissue&amp;sort=created</a>"
+        in demo_page
+    )
+
+    # 2. Package with gap but no issues_url: no link
+    no_issues_page = (site / "p" / "nowheels-noissues" / "index.html").read_text(
+        encoding="utf-8"
+    )
+    assert "No wheel for your platform?" not in no_issues_page
+
+    # 3. Package with all wheels: no link even if issues_url key exists
+    all_wheels_page = (site / "p" / "allwheels-withissues" / "index.html").read_text(
+        encoding="utf-8"
+    )
+    assert "No wheel for your platform?" not in all_wheels_page
+
+    # 4. Refusals: http URL not rendered
+    bad_url_page = (site / "p" / "badurl" / "index.html").read_text(encoding="utf-8")
+    assert "No wheel for your platform?" not in bad_url_page
+
+    # 5. Refusals: userinfo URL not rendered
+    userinfo_page = (site / "p" / "userinfourl" / "index.html").read_text(
+        encoding="utf-8"
+    )
+    assert "No wheel for your platform?" not in userinfo_page
+
+    # 6. Refusals: control character URL not rendered
+    control_page = (site / "p" / "controlcharurl" / "index.html").read_text(
+        encoding="utf-8"
+    )
+    assert "No wheel for your platform?" not in control_page
+
+
+def test_build_lookup_includes_issues_url(tmp_path):
+    url = "https://github.com/org/demo/issues"
+    data = snapshot(
+        [
+            package(1, "demo", ["source", "missing", "wheel"], issues_url=url),
+            package(2, "other", ["source", "wheel", "wheel"]),
+        ]
+    )
+    scan_file = write_scan(tmp_path / "coverage.json", data)
+    out = tmp_path / "data" / "packages"
+    build_lookup.build(scan_file, out, root=tmp_path)
+
+    demo = json.loads((out / "demo.json").read_text(encoding="utf-8"))
+    other = json.loads((out / "other.json").read_text(encoding="utf-8"))
+
+    assert demo.get("issues_url") == url
+    assert "issues_url" not in other
