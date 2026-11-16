@@ -622,6 +622,47 @@ def problems(result: object, job: dict) -> list[str]:
     return out
 
 
+def _mins(seconds: float | None) -> str:
+    s = seconds or 0
+    return f"{s} s" if s < 90 else f"{round(s / 60)} min"
+
+
+def lab_verdict(r: dict) -> dict[str, str]:
+    """Port of site/logic.js:labVerdict(). A wheel with no compiled extension module is never called a working compiled build."""
+    outcome = r.get("outcome")
+    reason = r.get("reason")
+    seconds = r.get("seconds") or 0
+    m = _mins(seconds)
+
+    if outcome == "timeout":
+        return {"kind": "slow", "text": f"didn't finish building in {m}"}
+    if outcome == "failed" and reason == "unsupported platform":
+        return {
+            "kind": "unsupported",
+            "text": "the package doesn't support this platform (its own build says so)",
+        }
+    if outcome == "failed":
+        text = "fails to build" if reason == "other" else f"fails to build: {reason}"
+        return {"kind": "fails", "text": text}
+    if r.get("import") == "deps-failed":
+        return {"kind": "broken", "text": f"builds in {m}, but its dependencies don't install"}
+    if r.get("import") != "ok":
+        return {"kind": "broken", "text": f"builds in {m}, but doesn't import"}
+    if not r.get("extensions"):
+        wheel = r.get("wheel") or ""
+        if re.search(r"-none-any$", wheel):
+            return {
+                "kind": "pure",
+                "text": f"builds in {m} as pure Python, with no compiled extension module (if it has an optional one, that was skipped)",
+            }
+        return {"kind": "partial", "text": f"builds in {m}, but with no compiled extension module"}
+    if r.get("gil") == "re-enabled":
+        return {"kind": "gil", "text": f"builds in {m}, but importing it turns the GIL back on"}
+
+    gil_suffix = ", GIL stays off" if r.get("gil") == "kept-off" else ""
+    return {"kind": "works", "text": f"builds from source in {m} and imports{gil_suffix}"}
+
+
 def merge(
     builds: dict | None, results: dict[str, object], jobs: list[dict], now: str, log: str | None = None
 ) -> tuple[dict, list[str]]:

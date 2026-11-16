@@ -24,6 +24,8 @@ if __package__:  # imported as scripts.build_pages (the tests)
     from . import (
         build_badges,
         build_campaigns,
+        build_lab,
+        build_lookup,
         check_notes,
         install_results,
         pyodide_locks,
@@ -31,6 +33,8 @@ if __package__:  # imported as scripts.build_pages (the tests)
 else:  # run as python scripts/build_pages.py
     import build_badges
     import build_campaigns
+    import build_lab
+    import build_lookup
     import check_notes
     import install_results
     import pyodide_locks
@@ -40,6 +44,27 @@ SAFE_NAME = re.compile(r"[a-z0-9]+(-[a-z0-9]+)*")
 BASE_URL = "https://wheelgap.github.io/tracker/"
 REPO_URL = "https://github.com/wheelgap/tracker"
 NOTES_DIR = Path(__file__).resolve().parent.parent / "notes"
+BUILDS = Path(__file__).resolve().parent.parent / "data" / "builds.json"
+LAB_PILL = {
+    "works": "s-wheel",
+    "gil": "s-source",
+    "pure": "s-none",
+    "unsupported": "s-none",
+    "partial": "s-source",
+    "slow": "s-source",
+    "broken": "s-missing",
+    "fails": "s-missing",
+}
+LAB_LABEL = {
+    "works": "works",
+    "gil": "GIL back on",
+    "pure": "pure Python",
+    "unsupported": "unsupported",
+    "partial": "no compiled part",
+    "broken": "won't load",
+    "fails": "fails",
+    "slow": "too slow",
+}
 KIND_TEXT = {
     "workaround": "Workaround",
     "alternative": "Alternative",
@@ -355,6 +380,44 @@ def install_html(install: dict) -> str:
     )
 
 
+def lab_html(builds: list[dict]) -> str:
+    """The Build lab section: verdict, runner, date, and link for each target built for this release."""
+    if not builds:
+        return ""
+    e = html.escape
+    rows = []
+    for r in sorted(builds, key=lambda b: b.get("target", "")):
+        v = build_lab.lab_verdict(r)
+        pill = LAB_PILL.get(v["kind"], "s-unknown")
+        label = LAB_LABEL.get(v["kind"], v["kind"])
+        where = f"{e(str(r.get('runner', '')))}, Python {e(str(r.get('python', '')))}, {e(str(r.get('date', '')))}"
+        if log := r.get("log"):
+            where += f' · <a href="{e(log)}">run</a>'
+        detail = ""
+        if excerpt := r.get("excerpt"):
+            detail = f'<details><summary>log</summary><code>{e(excerpt)}</code></details>'
+        rows.append(
+            f'          <tr><th scope="row">{e(r["target"])}</th>'
+            f'<td><span class="status {pill}">{e(label)}</span> {e(v["text"])}</td>'
+            f'<td class="lab-where">{where}{detail}</td></tr>\n'
+        )
+    return (
+        '    <section aria-labelledby="build-lab">\n'
+        '      <h2 id="build-lab">Build lab</h2>\n'
+        '      <p class="sub">A dated observation on GitHub\'s runners, not a promise about your machine: '
+        'runners come with compilers and many system libraries preinstalled, so a build that works there '
+        'can still need setup on your machine.</p>\n'
+        '      <div class="matrix-scroll"><table class="matrix lab-table">\n'
+        '        <thead><tr><th scope="col">Target</th><th scope="col">From source</th>'
+        '<th scope="col">Details</th></tr></thead>\n'
+        '        <tbody>\n'
+        f'{"".join(rows)}'
+        '        </tbody>\n'
+        '      </table></div>\n'
+        '    </section>\n'
+    )
+
+
 def page(
     package: dict,
     scan: dict,
@@ -364,12 +427,14 @@ def page(
     found: dict[str, dict] | None = None,
     campaigns: list[tuple[str, dict]] | None = None,
     tree_badge: bool = False,
+    builds: list[dict] | None = None,
 ) -> str:
     """The package's page. notes are its notes from notes/ (stale ones are left out here);
     note_file says whether notes/<name>.toml exists, so "Add a note" opens the editor instead.
     found is pyodide_locks.releases(scan): the Pyodide release behind each Python's bundled cells.
     campaigns pairs each membership status with its loaded campaign. tree_badge says whether
-    build_badges writes badge/<name>-tree.json, so the page shows its snippet too."""
+    build_badges writes badge/<name>-tree.json, so the page shows its snippet too.
+    builds holds the package's build lab results."""
     found = found or {}
     bundled = pyodide_locks.bundled(package, scan["targets"], found)
     way_out = package.get("way_out", {})
@@ -381,6 +446,8 @@ def page(
     columns = {pl: index[(python, pl)] for pl in platforms if pl != "pyodide" and (python, pl) in index}
     e = html.escape
     name, version = package["name"], package["version"] or ""
+    current_builds = [r for r in (builds or []) if version and r.get("version") == version]
+    lab_by_target = {r["target"]: r for r in current_builds if "target" in r}
     title = f"{name} wheel coverage: Linux, Alpine, macOS, Windows, ARM, Pyodide"
     url = f"{BASE_URL}p/{canonical(name)}/"
     summary = describe(package, columns, python, targets)
@@ -418,6 +485,9 @@ def page(
                 detail = f"{hint['release']} is the last release with a wheel here."
             elif hint["kind"] == "newer":
                 detail = f"Upgrade to {hint['release']} for a wheel here."
+        if s == "source" and (r := lab_by_target.get(targets[i]["label"])):
+            v = build_lab.lab_verdict(r)
+            detail = f"{v['text']}. {detail}" if detail else v["text"]
         small = f'<small class="bver">{e(detail)}</small>' if detail else ""
         return f'<td><span class="status s-{e(s)}">{e(STATUS_TEXT.get(s, s))}</span>{small}</td>'
 
@@ -453,6 +523,7 @@ def page(
         shown, canonical(name), gap_platforms(package, targets), str(scan["generated"])[:10], note_file
     )
     install_section = install_html(package.get("install", {}))
+    lab_section = lab_html(current_builds)
     return f"""<!doctype html>
 <html lang="en">
 <head>
@@ -484,7 +555,7 @@ def page(
         </tbody>
       </table></div>{ask}{why}
     </div>
-{install_section}{notes_section}    <section>
+{install_section}{lab_section}{notes_section}    <section>
       <h2>Badge for your README</h2>
       <pre class="badge-md">{badge_code}</pre>
       <p class="sub"><a href="../../data/packages/{e(slug)}.json">Package JSON</a></p>
@@ -502,14 +573,17 @@ def build(
     notes_dir: Path | None = None,
     root: Path = pyodide_locks.ROOT,
     config_path: Path | None = None,
+    builds_path: Path | None = None,
 ) -> int:
     """Write the pages and the sitemap; notes come from notes_dir, or none when it is None.
     root holds pyodide/locks.json and the lock files it names.
-    config_path defaults to campaigns.toml beside the scan's data directory."""
+    config_path defaults to campaigns.toml beside the scan's data directory.
+    builds_path is the build lab's data/builds.json (None: no lab results)."""
     scan = json.loads(coverage_path.read_text(encoding="utf-8"))
     if scan.get("schema") != SCAN_SCHEMA:
         sys.exit(f"build_pages: coverage.json schema {scan.get('schema')!r}, expected {SCAN_SCHEMA}")
     notes = check_notes.load(notes_dir, scan) if notes_dir is not None else {}
+    lab = build_lookup.lab_results(builds_path)
     python = newest_non_free_threaded(scan["targets"])
     found = pyodide_locks.releases(scan, root)
     memberships: dict[str, list[tuple[str, dict]]] = {}
@@ -554,7 +628,17 @@ def build(
         out = site / "p" / name
         out.mkdir(parents=True, exist_ok=True)
         note_file = notes_dir is not None and (notes_dir / f"{name}.toml").exists()
-        text = page(p, scan, python, notes.get(name), note_file, found, memberships.get(name), name in trees)
+        text = page(
+            p,
+            scan,
+            python,
+            notes.get(name),
+            note_file,
+            found,
+            memberships.get(name),
+            name in trees,
+            builds=lab.get(name, []),
+        )
         (out / "index.html").write_text(text, encoding="utf-8")
     urls = [BASE_URL, f"{BASE_URL}check/"] + [f"{BASE_URL}p/{name}/" for name in names]
     sitemap = "".join(f"  <url><loc>{html.escape(u)}</loc></url>\n" for u in urls)
@@ -579,4 +663,4 @@ def robots_txt() -> str:
 if __name__ == "__main__":
     coverage, site = (Path(p) for p in sys.argv[1:3])
     notes_dir = Path(sys.argv[3]) if len(sys.argv) > 3 else NOTES_DIR
-    print(f"pages: {build(coverage, site, notes_dir)} packages in {site / 'p'}")
+    print(f"pages: {build(coverage, site, notes_dir, builds_path=BUILDS)} packages in {site / 'p'}")

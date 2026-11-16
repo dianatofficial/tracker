@@ -8,7 +8,7 @@ import unittest
 import zipfile
 from pathlib import Path
 
-from scripts import build_lab
+from scripts import build_lab, build_pages
 
 TARGETS = ["3.14 win-arm64", "3.14t win-arm64", "3.14t linux-x86_64", "3.14 musl-aarch64", "3.14 linux-x86_64"]
 
@@ -373,6 +373,192 @@ class NewestPython(unittest.TestCase):
         planned = {(j["name"], j["target"], j["runner"]) for j in build_lab.plan(coverage, None, 10, "2026-11-16")}
         self.assertEqual(planned, {("pyyaml", "3.15 linux-x86_64", "ubuntu-24.04"),
                                    ("pyyaml", "3.15 win-amd64", "windows-2025")})  # fmt: skip
+
+
+class BuildLabVerdictAndPage(unittest.TestCase):
+    def test_lab_verdict_parity_with_logic_js(self):
+        base = {
+            "outcome": "built",
+            "seconds": 87,
+            "wheel": "x-cp314-cp314-any.whl",
+            "extensions": 1,
+            "import": "ok",
+            "gil": None,
+            "reason": None,
+        }
+
+        def v(extra):
+            d = dict(base)
+            d.update(extra)
+            return build_lab.lab_verdict(d)
+
+        self.assertEqual(v({}), {"kind": "works", "text": "builds from source in 87 s and imports"})
+        self.assertEqual(
+            v({"gil": "kept-off", "seconds": 289}),
+            {"kind": "works", "text": "builds from source in 5 min and imports, GIL stays off"},
+        )
+        self.assertEqual(v({"gil": "re-enabled"})["kind"], "gil")
+        self.assertEqual(
+            v({"gil": "re-enabled"})["text"],
+            "builds in 87 s, but importing it turns the GIL back on",
+        )
+        self.assertEqual(v({"extensions": 0, "wheel": "py3-none-any"})["kind"], "pure")
+        self.assertIn(
+            "as pure Python, with no compiled extension module (if it has an optional one, that was skipped)",
+            v({"extensions": 0, "wheel": "py3-none-any"})["text"],
+        )
+        self.assertEqual(v({"extensions": 0})["kind"], "partial")
+        self.assertEqual(
+            v({"extensions": 0})["text"],
+            "builds in 87 s, but with no compiled extension module",
+        )
+        self.assertEqual(v({"import": "failed"})["kind"], "broken")
+        self.assertEqual(v({"import": "failed"})["text"], "builds in 87 s, but doesn't import")
+        self.assertEqual(v({"import": "deps-failed"})["kind"], "broken")
+        self.assertEqual(
+            v({"import": "deps-failed"})["text"],
+            "builds in 87 s, but its dependencies don't install",
+        )
+        self.assertEqual(
+            v({"outcome": "failed", "reason": "needs OpenSSL", "import": None, "wheel": None, "extensions": None}),
+            {"kind": "fails", "text": "fails to build: needs OpenSSL"},
+        )
+        self.assertEqual(v({"outcome": "failed", "reason": "other"}), {"kind": "fails", "text": "fails to build"})
+        self.assertEqual(
+            v({"outcome": "failed", "reason": "unsupported platform"}),
+            {"kind": "unsupported", "text": "the package doesn't support this platform (its own build says so)"},
+        )
+        self.assertEqual(
+            v({"outcome": "timeout", "seconds": 2400}),
+            {"kind": "slow", "text": "didn't finish building in 40 min"},
+        )
+
+    def _make_scan(self, packages):
+        targets = [
+            {"label": "3.14 win-arm64", "python": "3.14", "platform": "win-arm64"},
+            {"label": "3.14 macos-arm64", "python": "3.14", "platform": "macos-arm64"},
+            {"label": "3.14 linux-x86_64", "python": "3.14", "platform": "linux-x86_64"},
+        ]
+        return {
+            "schema": 1,
+            "generated": "2026-11-16T08:00:00Z",
+            "wheelgap": "0.10.0",
+            "targets": targets,
+            "packages": packages,
+        }
+
+    def test_page_shows_build_lab_verdict_on_source_cell(self):
+        scan = self._make_scan([
+            {"rank": 1, "name": "demo", "version": "1.0.0", "pure": False, "error": None, "results": ["source", "wheel", "wheel"]},
+        ])
+        builds = [
+            {
+                "target": "3.14 win-arm64",
+                "version": "1.0.0",
+                "outcome": "built",
+                "seconds": 87,
+                "wheel": "demo-cp314-cp314-win_arm64.whl",
+                "extensions": 1,
+                "import": "ok",
+                "gil": None,
+                "reason": None,
+                "excerpt": "",
+                "toolchains": ["msvc"],
+                "runner": "windows-11-arm",
+                "python": "3.14.0",
+                "date": "2026-11-15",
+                "log": "https://github.com/wheelgap/tracker/actions/runs/12345",
+            }
+        ]
+        html_page = build_pages.page(scan["packages"][0], scan, "3.14", builds=builds)
+        self.assertIn("builds from source in 87 s and imports", html_page)
+        self.assertIn('<small class="bver">builds from source in 87 s and imports</small>', html_page)
+        self.assertIn('<section aria-labelledby="build-lab">', html_page)
+        self.assertIn('<h2 id="build-lab">Build lab</h2>', html_page)
+        self.assertIn("windows-11-arm, Python 3.14.0, 2026-11-15", html_page)
+        self.assertIn('<a href="https://github.com/wheelgap/tracker/actions/runs/12345">run</a>', html_page)
+        self.assertIn("A dated observation on GitHub's runners, not a promise about your machine", html_page)
+
+    def test_page_omits_build_lab_on_wheel_cell(self):
+        scan = self._make_scan([
+            {"rank": 1, "name": "demo", "version": "1.0.0", "pure": False, "error": None, "results": ["wheel", "wheel", "wheel"]},
+        ])
+        builds = [
+            {
+                "target": "3.14 win-arm64",
+                "version": "1.0.0",
+                "outcome": "built",
+                "seconds": 87,
+                "wheel": "demo-cp314-cp314-win_arm64.whl",
+                "extensions": 1,
+                "import": "ok",
+                "gil": None,
+                "reason": None,
+                "excerpt": "",
+                "toolchains": ["msvc"],
+                "runner": "windows-11-arm",
+                "python": "3.14.0",
+                "date": "2026-11-15",
+                "log": "https://github.com/wheelgap/tracker/actions/runs/12345",
+            }
+        ]
+        html_page = build_pages.page(scan["packages"][0], scan, "3.14", builds=builds)
+        # Result was for a target whose status is 'wheel': verdict should not appear under the cell
+        self.assertNotIn('<small class="bver">builds from source in 87 s and imports</small>', html_page)
+
+    def test_page_omits_build_lab_for_different_version(self):
+        scan = self._make_scan([
+            {"rank": 1, "name": "demo", "version": "2.0.0", "pure": False, "error": None, "results": ["source", "wheel", "wheel"]},
+        ])
+        builds = [
+            {
+                "target": "3.14 win-arm64",
+                "version": "1.0.0",  # old version
+                "outcome": "built",
+                "seconds": 87,
+                "wheel": "demo-cp314-cp314-win_arm64.whl",
+                "extensions": 1,
+                "import": "ok",
+                "gil": None,
+                "reason": None,
+                "excerpt": "",
+                "toolchains": ["msvc"],
+                "runner": "windows-11-arm",
+                "python": "3.14.0",
+                "date": "2026-11-15",
+            }
+        ]
+        html_page = build_pages.page(scan["packages"][0], scan, "3.14", builds=builds)
+        self.assertNotIn("builds from source in 87 s and imports", html_page)
+        self.assertNotIn('<section aria-labelledby="build-lab">', html_page)
+
+    def test_page_escapes_reason_and_excerpt(self):
+        scan = self._make_scan([
+            {"rank": 1, "name": "demo", "version": "1.0.0", "pure": False, "error": None, "results": ["source", "wheel", "wheel"]},
+        ])
+        builds = [
+            {
+                "target": "3.14 win-arm64",
+                "version": "1.0.0",
+                "outcome": "failed",
+                "seconds": 12,
+                "wheel": None,
+                "extensions": None,
+                "import": None,
+                "gil": None,
+                "reason": "needs <tool & more>",
+                "excerpt": "error: <script>alert('xss')</script> & fail",
+                "toolchains": [],
+                "runner": "windows-11-arm",
+                "python": "3.14.0",
+                "date": "2026-11-15",
+            }
+        ]
+        html_page = build_pages.page(scan["packages"][0], scan, "3.14", builds=builds)
+        self.assertIn("needs &lt;tool &amp; more&gt;", html_page)
+        self.assertIn("&lt;script&gt;alert(&#x27;xss&#x27;)&lt;/script&gt; &amp; fail", html_page)
+        self.assertNotIn("<tool & more>", html_page)
+        self.assertNotIn("<script>alert", html_page)
 
 
 if __name__ == "__main__":
