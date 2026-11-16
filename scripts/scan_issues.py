@@ -5,13 +5,12 @@ from __future__ import annotations
 import argparse
 import json
 import re
-import string
 import tempfile
 import time
 import urllib.request
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import TimeoutError as FuturesTimeout
 from pathlib import Path
-from urllib.parse import urlsplit
 
 TOP = 5_000
 DEADLINE = 300  # seconds across all packages
@@ -21,90 +20,9 @@ TIMEOUT = 10
 USER_AGENT = "wheelgap-tracker (+https://wheelgap.github.io/tracker/)"
 SAFE_NAME = re.compile(r"[a-z0-9]+(-[a-z0-9]+)*")
 
-_ISSUE_KEYS = (
-    "issues",
-    "issuetracker",
-    "bugtracker",
-    "tracker",
-    "bugs",
-    "bugreports",
-    "issuereports",
-    "issue",
-    "bug",
-    "githubissues",
-    "gitlabissues",
-)
-_REPO_KEYS = ("source", "sourcecode", "code", "repository", "homepage", "home")
-_LABEL_DROP = str.maketrans("", "", string.punctuation + string.whitespace)
-
 
 def canonical(name: str) -> str:
     return re.sub(r"[-_.]+", "-", name).lower()
-
-
-def _normalise_label(label: str) -> str:
-    """PEP 753's label normalisation: lowercase, with punctuation and whitespace removed."""
-    return label.translate(_LABEL_DROP).lower()
-
-
-def _plain(url: str) -> bool:
-    """Printable ASCII with no spaces: nothing a terminal or browser would misinterpret."""
-    return url.isascii() and url.isprintable() and " " not in url
-
-
-def extract_issues_url(
-    project_urls: dict[str, str] | None, homepage: str | None = None
-) -> str | None:
-    """Extract an HTTPS issue tracker URL from PyPI metadata.
-
-    Reads `project_urls` with labels normalised as PEP 753 does (so `Issue-Tracker` and `bug_tracker` count),
-    preferring issue tracker keys (Issues, Bug Tracker, Tracker).
-    Falls back to a GitHub Source/Homepage URL with `/issues` added.
-    Refuses any URL that is not an https:// URL, any with userinfo (@ in netloc),
-    and any with characters that are not printable ASCII.
-    """
-    by_label: dict[str, list[str]] = {}
-    if project_urls and isinstance(project_urls, dict):
-        for k, v in project_urls.items():
-            if isinstance(k, str) and isinstance(v, str):
-                by_label.setdefault(_normalise_label(k), []).append(v)
-        for target_key in _ISSUE_KEYS:
-            for url in by_label.get(target_key, []):
-                candidate = url.strip()
-                if not candidate:
-                    continue
-                parsed = urlsplit(candidate)
-                # No userinfo: https://github.com@evil.example/ reads as GitHub but opens evil.example.
-                if (
-                    parsed.scheme == "https"
-                    and parsed.netloc
-                    and "@" not in parsed.netloc
-                    and _plain(candidate)
-                ):
-                    return candidate
-
-    repo_candidates: list[str] = []
-    for rk in _REPO_KEYS:
-        repo_candidates.extend(by_label.get(rk, []))
-    if homepage and isinstance(homepage, str):
-        repo_candidates.append(homepage)
-
-    for cand in repo_candidates:
-        if not cand:
-            continue
-        candidate = cand.strip()
-        parsed = urlsplit(candidate)
-        if (
-            parsed.scheme == "https"
-            and parsed.netloc.lower() in ("github.com", "www.github.com")
-            and _plain(candidate)
-        ):
-            segments = [s for s in parsed.path.strip("/").split("/") if s]
-            if len(segments) >= 2:
-                owner, repo = segments[0], segments[1].removesuffix(".git")
-                return f"https://github.com/{owner}/{repo}/issues"
-
-    return None
 
 
 def fetch_pypi_metadata(
@@ -129,10 +47,15 @@ def scan(
     top: int = TOP,
     deadline_seconds: float = DEADLINE,
     fetcher=fetch_pypi_metadata,
+    extract=None,
 ) -> None:
     data = json.loads(path.read_text(encoding="utf-8"))
     if data.get("schema") != 1:
         raise ValueError("expected coverage schema 1")
+    if extract is None:
+        # wheelgap's own rule (`--explain`'s "ask for a wheel" link), so the site and the CLI never disagree and a
+        # fix there reaches both: PEP 753 labels, https only, no user@ host, printable ASCII.
+        from wheelgap.pypi import extract_issues_url as extract
 
     for package in data["packages"]:
         package.pop("issues_url", None)
@@ -152,26 +75,27 @@ def scan(
     found = 0
     if candidates:
         deadline = time.monotonic() + deadline_seconds
-        with ThreadPoolExecutor(max_workers=WORKERS) as pool:
+        pool = ThreadPoolExecutor(max_workers=WORKERS)
+        try:
             futures = {
-                pool.submit(
-                    fetcher,
-                    package["name"],
-                    min(TIMEOUT, max(0.5, deadline - time.monotonic())),
-                ): package
+                pool.submit(fetcher, package["name"], min(TIMEOUT, max(0.5, deadline_seconds))): package
                 for package in candidates
             }
-            for future in as_completed(futures):
+            # Past the deadline the packages not yet answered get no link (never a guessed one) and the
+            # lookups still queued are cancelled, so the step ends well inside its timeout.
+            for future in as_completed(futures, timeout=max(0.0, deadline - time.monotonic())):
                 package = futures[future]
-                if time.monotonic() > deadline:
-                    break
                 try:
                     urls, home = future.result()
-                    if url := extract_issues_url(urls, home):
-                        package["issues_url"] = url
-                        found += 1
                 except (OSError, ValueError, TimeoutError):
                     continue
+                if url := extract(urls, home):
+                    package["issues_url"] = url
+                    found += 1
+        except FuturesTimeout:
+            print("issue trackers: deadline passed; the packages not yet looked up get no link tonight")
+        finally:
+            pool.shutdown(wait=False, cancel_futures=True)
 
     temporary = None
     try:

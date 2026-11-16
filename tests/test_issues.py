@@ -44,160 +44,9 @@ def write_scan(path, data):
     return path
 
 
-def test_extract_issues_url_issue_tracker_keys():
-    assert (
-        scan_issues.extract_issues_url({"Issues": "https://github.com/org/repo/issues"})
-        == "https://github.com/org/repo/issues"
-    )
-    assert (
-        scan_issues.extract_issues_url(
-            {"Bug Tracker": "https://bugs.example.com/project"}
-        )
-        == "https://bugs.example.com/project"
-    )
-    assert (
-        scan_issues.extract_issues_url(
-            {"tracker": "https://tracker.debian.org/pkg/demo"}
-        )
-        == "https://tracker.debian.org/pkg/demo"
-    )
-    assert (
-        scan_issues.extract_issues_url({"Bugs": "https://github.com/org/repo/issues"})
-        == "https://github.com/org/repo/issues"
-    )
-
-
-@pytest.mark.parametrize(
-    "label",
-    [
-        "Issue-Tracker",
-        "Bug-Tracker",
-        "bugtracker",
-        "issue_tracker",
-        "GitHub: issues",
-        "ISSUES ",
-        "Bug Reports",
-        "Bug",
-    ],
-)
-def test_extract_issues_url_normalises_labels(label):
-    url = "https://github.com/org/repo/issues"
-    assert (
-        scan_issues.extract_issues_url(
-            {label: url, "Documentation": "https://docs.example.com"}
-        )
-        == url
-    )
-
-
-def test_extract_issues_url_preference_order():
-    urls = {
-        "Tracker": "https://tracker.example.com/demo",
-        "Issue_Tracker": "https://bugs.example.com/project",
-    }
-    assert scan_issues.extract_issues_url(urls) == "https://bugs.example.com/project"
-
-
-def test_extract_issues_url_github_fallback():
-    assert (
-        scan_issues.extract_issues_url({"Source": "https://github.com/org/repo"})
-        == "https://github.com/org/repo/issues"
-    )
-    assert (
-        scan_issues.extract_issues_url(
-            {"Repository": "https://github.com/org/repo.git"}
-        )
-        == "https://github.com/org/repo/issues"
-    )
-    assert (
-        scan_issues.extract_issues_url(None, homepage="https://github.com/org/repo")
-        == "https://github.com/org/repo/issues"
-    )
-    assert (
-        scan_issues.extract_issues_url({"Homepage": "https://www.github.com/org/repo/"})
-        == "https://github.com/org/repo/issues"
-    )
-
-
-def test_extract_issues_url_refuses_non_https():
-    assert (
-        scan_issues.extract_issues_url({"Issues": "http://github.com/org/repo/issues"})
-        is None
-    )
-    assert (
-        scan_issues.extract_issues_url(
-            {"Bug Tracker": "http://bugs.example.com/project"}
-        )
-        is None
-    )
-    assert (
-        scan_issues.extract_issues_url({"Source": "http://github.com/org/repo"}) is None
-    )
-    assert (
-        scan_issues.extract_issues_url({"Issues": "ftp://files.example.com/bugs"})
-        is None
-    )
-    assert scan_issues.extract_issues_url({"Issues": "javascript:alert(1)"}) is None
-
-
-def test_extract_issues_url_refuses_userinfo():
-    assert (
-        scan_issues.extract_issues_url({"Issues": "https://github.com@evil.example/x"})
-        is None
-    )
-    assert (
-        scan_issues.extract_issues_url(
-            {"Issues": "https://user:pass@bugs.example.com/"}
-        )
-        is None
-    )
-    assert (
-        scan_issues.extract_issues_url(
-            {"Source": "https://github.com@evil.example/org/repo"}
-        )
-        is None
-    )
-
-
-def test_extract_issues_url_refuses_control_characters_and_spaces():
-    for bad in (
-        "https://github.com/org/repo/issues\x1b[2J",
-        "https://bugs.example.com/\x07",
-        "https://ex.com/a\nb",
-        "https://ex.com/a\rb",
-        "https://ex.com/a\tb",
-        "https://ex.com/a b",
-        "https://ex.com/\x00null",
-        "https://ex.com/\u202eevil",
-    ):
-        assert scan_issues.extract_issues_url({"Issues": bad}) is None, bad
-        assert scan_issues.extract_issues_url({"Source": bad}) is None, bad
-
-
-def test_extract_issues_url_non_github_fallback_ignored():
-    assert (
-        scan_issues.extract_issues_url({"Source": "https://gitlab.com/org/repo"})
-        is None
-    )
-    assert (
-        scan_issues.extract_issues_url({"Homepage": "https://example.com/not-github"})
-        is None
-    )
-    assert (
-        scan_issues.extract_issues_url(None, homepage="https://example.com/blog")
-        is None
-    )
-
-
-def test_extract_issues_url_empty_or_partial_labels():
-    assert scan_issues.extract_issues_url({}) is None
-    assert scan_issues.extract_issues_url(None, None) is None
-    assert (
-        scan_issues.extract_issues_url(
-            {"Known issues": "https://docs.example.com/known-issues"}
-        )
-        is None
-    )
+def first_issues_label(urls, home):
+    """A stand-in for wheelgap.pypi.extract_issues_url, whose rules wheelgap's own tests cover."""
+    return (urls or {}).get("Issues")
 
 
 def test_scan_issues_populates_only_packages_with_gaps(tmp_path):
@@ -225,7 +74,7 @@ def test_scan_issues_populates_only_packages_with_gaps(tmp_path):
     def mock_fetch(name, timeout):
         return metadata.get(name, (None, None))
 
-    scan_issues.scan(scan_file, top=10, deadline_seconds=10, fetcher=mock_fetch)
+    scan_issues.scan(scan_file, top=10, deadline_seconds=10, fetcher=mock_fetch, extract=first_issues_label)
     updated = json.loads(scan_file.read_text(encoding="utf-8"))
 
     assert (
@@ -236,6 +85,38 @@ def test_scan_issues_populates_only_packages_with_gaps(tmp_path):
     assert "issues_url" not in updated["packages"][2]
     # Stale issues_url popped because no issues URL was found
     assert "issues_url" not in updated["packages"][3]
+
+
+def test_scan_issues_stops_at_the_deadline(tmp_path):
+    # One lookup hangs: the scan must still end near its deadline, write what it found, and give the slow
+    # package no link rather than wait for it.
+    import threading
+    import time
+
+    release = threading.Event()
+    data = snapshot(
+        [
+            package(1, "quick", ["source", "wheel", "wheel"]),
+            package(2, "stuck", ["source", "wheel", "wheel"], issues_url="https://example.com/old"),
+        ]
+    )
+    scan_file = write_scan(tmp_path / "coverage.json", data)
+
+    def fetch(name, timeout):
+        if name == "stuck":
+            release.wait(10)
+        return {"Issues": f"https://example.com/{name}/issues"}, None
+
+    started = time.monotonic()
+    try:
+        scan_issues.scan(scan_file, top=10, deadline_seconds=0.5, fetcher=fetch, extract=first_issues_label)
+        elapsed = time.monotonic() - started
+    finally:
+        release.set()
+    assert elapsed < 5
+    updated = json.loads(scan_file.read_text(encoding="utf-8"))
+    assert updated["packages"][0]["issues_url"] == "https://example.com/quick/issues"
+    assert "issues_url" not in updated["packages"][1]
 
 
 def test_scan_issues_refuses_invalid_schema(tmp_path):
