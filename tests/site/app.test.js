@@ -443,7 +443,7 @@ test("sparkline marks the night Pyodide's own builds start counting, and escapes
     { date: "2026-11-10", value: 82.0, upgrade: "<b>x</b>", bundledStart: true },
   ];
   const svg = vm.runInContext(`sparkline(${JSON.stringify(points)}, "Pyodide")`, page.context);
-  assert.match(svg, /Pyodide's own builds counted from here/);
+  assert.match(svg, /Pyodide&#39;s own builds counted from here/);
   assert.match(svg, /wheelgap changed to &lt;b&gt;x&lt;\/b&gt;/);
   assert.doesNotMatch(svg, /<b>/);
 });
