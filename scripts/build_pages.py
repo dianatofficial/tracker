@@ -29,6 +29,7 @@ if __package__:  # imported as scripts.build_pages (the tests)
         check_notes,
         install_results,
         pyodide_locks,
+        update_changes,
     )
 else:  # run as python scripts/build_pages.py
     import build_badges
@@ -38,6 +39,7 @@ else:  # run as python scripts/build_pages.py
     import check_notes
     import install_results
     import pyodide_locks
+    import update_changes
 
 SCAN_SCHEMA = 1
 SAFE_NAME = re.compile(r"[a-z0-9]+(-[a-z0-9]+)*")
@@ -418,6 +420,80 @@ def lab_html(builds: list[dict]) -> str:
     )
 
 
+def format_target(target: str) -> str:
+    """Format a target like '3.14 win-arm64' into 'Windows ARM64, Python 3.14'."""
+    parts = target.split(" ", 1)
+    if len(parts) == 2:
+        if parts[0] in PLATFORM_NAMES:
+            plat_name = PLATFORM_NAMES[parts[0]]
+            return f"{plat_name}, Python {parts[1]}"
+        plat_name = PLATFORM_NAMES.get(parts[1], parts[1])
+        return f"{plat_name}, Python {parts[0]}"
+    return PLATFORM_NAMES.get(target, target)
+
+
+def changes_html(changes: list[dict] | None) -> str:
+    """The Recent changes section: up to 10 newest wheel gains and losses from changes.json."""
+    if not changes:
+        return ""
+    e = html.escape
+    ordered = sorted(changes, key=lambda c: str(c.get("date", "")), reverse=True)
+    items = []
+    for item in ordered[:10]:
+        date = str(item.get("date", "")).split("T")[0]
+        act = item.get("action", "")
+        if act == "gained" or act == "gained a wheel" or item.get("to") == "wheel":
+            action = "gained a wheel"
+        else:
+            action = "lost a wheel"
+        target = format_target(item.get("target", ""))
+        items.append(f"        <li>{e(date)}: {e(action)} for {e(target)}</li>\n")
+    return (
+        '    <section aria-labelledby="recent-changes">\n'
+        '      <h2 id="recent-changes">Recent changes</h2>\n'
+        f'      <p class="sub">Wheel changes recorded in nightly scans over the last {update_changes.KEEP_DAYS} days.</p>\n'
+        '      <ul>\n'
+        f'{"".join(items)}'
+        '      </ul>\n'
+        '    </section>\n'
+    )
+
+
+def changes_by_package(changes: list[dict]) -> dict[str, list[dict]]:
+    """Index wheel gains and losses from changes.json by canonical package name, newest first."""
+    by_pkg: dict[str, list[dict]] = {}
+    for entry in sorted(changes, key=lambda c: str(c.get("date", "")), reverse=True):
+        date = str(entry.get("date", ""))
+        if "gained" in entry or "lost" in entry:
+            for item in entry.get("gained", []):
+                name = canonical(item.get("name", ""))
+                if name:
+                    by_pkg.setdefault(name, []).append({
+                        "date": date,
+                        "action": "gained",
+                        "target": item.get("target", ""),
+                        "version": item.get("version"),
+                        "from": item.get("from"),
+                        "to": item.get("to", "wheel"),
+                    })
+            for item in entry.get("lost", []):
+                name = canonical(item.get("name", ""))
+                if name:
+                    by_pkg.setdefault(name, []).append({
+                        "date": date,
+                        "action": "lost",
+                        "target": item.get("target", ""),
+                        "version": item.get("version"),
+                        "from": item.get("from", "wheel"),
+                        "to": item.get("to"),
+                    })
+        elif "name" in entry:
+            name = canonical(entry.get("name", ""))
+            if name:
+                by_pkg.setdefault(name, []).append(dict(entry))
+    return by_pkg
+
+
 def page(
     package: dict,
     scan: dict,
@@ -428,13 +504,14 @@ def page(
     campaigns: list[tuple[str, dict]] | None = None,
     tree_badge: bool = False,
     builds: list[dict] | None = None,
+    changes: list[dict] | None = None,
 ) -> str:
     """The package's page. notes are its notes from notes/ (stale ones are left out here);
     note_file says whether notes/<name>.toml exists, so "Add a note" opens the editor instead.
     found is pyodide_locks.releases(scan): the Pyodide release behind each Python's bundled cells.
     campaigns pairs each membership status with its loaded campaign. tree_badge says whether
     build_badges writes badge/<name>-tree.json, so the page shows its snippet too.
-    builds holds the package's build lab results."""
+    builds holds the package's build lab results. changes holds recent wheel gains and losses from changes.json."""
     found = found or {}
     bundled = pyodide_locks.bundled(package, scan["targets"], found)
     way_out = package.get("way_out", {})
@@ -527,6 +604,7 @@ def page(
     # that result old news, not something to show.
     source_labels = {t["label"] for t, st in zip(targets, package["results"]) if st == "source"}
     lab_section = lab_html([r for r in current_builds if r.get("target") in source_labels])
+    changes_section = changes_html(changes)
     return f"""<!doctype html>
 <html lang="en">
 <head>
@@ -566,7 +644,7 @@ def page(
         </tbody>
       </table></div>{ask}{why}
     </div>
-{install_section}{lab_section}{notes_section}    <section>
+{changes_section}{install_section}{lab_section}{notes_section}    <section>
       <h2>Badge for your README</h2>
       <pre class="badge-md">{badge_code}</pre>
       <p class="sub"><a href="../../data/packages/{e(slug)}.json">Package JSON</a></p>
@@ -585,11 +663,13 @@ def build(
     root: Path = pyodide_locks.ROOT,
     config_path: Path | None = None,
     builds_path: Path | None = None,
+    changes_path: Path | None = None,
 ) -> int:
     """Write the pages and the sitemap; notes come from notes_dir, or none when it is None.
     root holds pyodide/locks.json and the lock files it names.
     config_path defaults to campaigns.toml beside the scan's data directory.
-    builds_path is the build lab's data/builds.json (None: no lab results)."""
+    builds_path is the build lab's data/builds.json (None: no lab results).
+    changes_path defaults to changes.json beside coverage.json."""
     scan = json.loads(coverage_path.read_text(encoding="utf-8"))
     if scan.get("schema") != SCAN_SCHEMA:
         sys.exit(f"build_pages: coverage.json schema {scan.get('schema')!r}, expected {SCAN_SCHEMA}")
@@ -597,11 +677,12 @@ def build(
     lab = build_lookup.lab_results(builds_path)
     python = newest_non_free_threaded(scan["targets"])
     found = pyodide_locks.releases(scan, root)
+    changes_path = changes_path or coverage_path.parent / "changes.json"
+    changes = json.loads(changes_path.read_text(encoding="utf-8")) if changes_path.exists() else []
+    pkg_changes = changes_by_package(changes)
     memberships: dict[str, list[tuple[str, dict]]] = {}
     config_path = config_path or coverage_path.parent.parent / "campaigns.toml"
     if config_path.exists():
-        changes_path = coverage_path.parent / "changes.json"
-        changes = json.loads(changes_path.read_text(encoding="utf-8")) if changes_path.exists() else []
         for campaign in build_campaigns.load_campaigns(config_path):
             campaign_python = campaign.get("python") or python
             platform = campaign["platform"]
@@ -649,6 +730,7 @@ def build(
             memberships.get(name),
             name in trees,
             builds=lab.get(name, []),
+            changes=pkg_changes.get(name, []),
         )
         (out / "index.html").write_text(text, encoding="utf-8")
     urls = [BASE_URL, f"{BASE_URL}check/"] + [f"{BASE_URL}p/{name}/" for name in names]
