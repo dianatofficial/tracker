@@ -176,6 +176,27 @@ function pyodideFooter(releases, anyBundled = false) {
   );
 }
 
+// The data/blockers.json target to show for a Python and platform: that one when it's there, else the newest Python
+// with data on the platform (free-threaded first only when python is), else null. Whole-tree installs are only
+// scanned for some Pythons, and build_blockers.py writes only targets with checked trees.
+function blockersLabel(raw, python, platform) {
+  const targets = raw && typeof raw === "object" && raw.targets && typeof raw.targets === "object" ? raw.targets : {};
+  const exact = `${python} ${platform}`;
+  if (Object.hasOwn(targets, exact)) return exact;
+  const freeThreaded = typeof python === "string" && python.endsWith("t");
+  const version = (py) => py.replace(/t$/, "").split(".").map(Number);
+  const found = Object.keys(targets)
+    .map((label) => label.split(" "))
+    .filter((parts) => parts.length === 2 && parts[1] === platform && /^[0-9]+\.[0-9]+t?$/.test(parts[0]))
+    .map(([py]) => py)
+    .sort((a, b) => {
+      if (a.endsWith("t") !== b.endsWith("t")) return a.endsWith("t") === freeThreaded ? -1 : 1;
+      const [am, an] = version(a), [bm, bn] = version(b);
+      return bm - am || bn - an;
+    });
+  return found.length ? `${found[0]} ${platform}` : null;
+}
+
 // Validated blockers for one target from data/blockers.json.
 // Returns { checked: number, blockers: [{ name, count, examples }] }.
 function blockersForTarget(raw, targetLabel) {
@@ -228,7 +249,7 @@ function labVerdict(r) {
 
 if (typeof module !== "undefined" && module.exports) {
   module.exports = {
-    BUNDLED_NOTE, isPackageName, isPackageSpec, splitSpec, installable, gapsAt, platformStats, pyodideReleases, bundledInfo, bundledDetail, lookupInstallData, gapWheelTargets, blockersForTarget, whyCommand, pyodideFooter,
+    BUNDLED_NOTE, isPackageName, isPackageSpec, splitSpec, installable, gapsAt, platformStats, pyodideReleases, bundledInfo, bundledDetail, lookupInstallData, gapWheelTargets, blockersLabel, blockersForTarget, whyCommand, pyodideFooter,
     labVerdict,
   };
 }

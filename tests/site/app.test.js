@@ -436,11 +436,65 @@ test("renderBlockers displays top install blockers with counts, examples, and li
   };
   vm.runInContext(`state.blockers = ${JSON.stringify(blockersData)}; state.python = "3.14"; state.platform = "win-arm64"; renderBlockers();`, page.context);
   const note = page.get("blockers-note").textContent;
-  assert.match(note, /Blocking the most installs on win-arm64/);
-  assert.match(note, /412 checked/);
+  assert.match(note, /other top-500 packages installing from wheels alone on 3\.14 win-arm64, of 412 checked\./);
+  assert.equal(page.get("blockers-target-badge").textContent, "3.14 win-arm64");
   const html = page.get("blockers-feed").innerHTML;
-  assert.match(html, /cryptography/);
-  assert.match(html, /41 trees/);
-  assert.match(html, /pyjwt/);
-  assert.match(html, /href="p\/cryptography\/"/);
+  assert.match(html, /Blocks 41 other top-500 installs, e\.g\. <a href="p\/pyjwt\/"/);
+  assert.match(html, /Blocks 12 other top-500 installs, e\.g\./);
+  assert.match(html, /href="p\/cryptography\/" class="pulse-pkg"/);
+  assert.doesNotMatch(html, /data-pkg/, "the name goes to the package page, not the drawer");
+});
+
+const blockersDoc = {
+  generated: "2026-11-17T00:00:00+00:00",
+  targets: {
+    "3.14 win-arm64": { checked: 498, blockers: [{ name: "cryptography", count: 29, examples: ["google-auth"] }] },
+    "3.14 musl-aarch64": { checked: 498, blockers: [{ name: "google-crc32c", count: 4, examples: ["google-cloud-storage"] }] },
+    "3.14 linux-x86_64": { checked: 498, blockers: [] },
+  },
+};
+
+test("the blockers card falls back to the newest Python checked, and says so (#93)", async () => {
+  const page = await loadPage("");
+  vm.runInContext(`state.blockers = ${JSON.stringify(blockersDoc)}; state.python = "3.13"; state.platform = "win-arm64"; renderBlockers();`, page.context);
+  assert.equal(page.get("blockers-target-badge").textContent, "3.14 win-arm64");
+  assert.match(page.get("blockers-note").textContent, /Installs aren't checked for Python 3\.13 here, so this is Python 3\.14\./);
+  assert.match(page.get("blockers-feed").innerHTML, /cryptography/);
+
+  vm.runInContext(`state.platform = "linux-x86_64"; renderBlockers();`, page.context);
+  assert.match(page.get("blockers-feed").innerHTML, /No missing wheel here holds back another top-500 package/);
+
+  vm.runInContext(`state.platform = "macos-arm64"; renderBlockers();`, page.context);
+  assert.match(page.get("blockers-note").textContent, /Whole-tree installs aren't checked on macos-arm64/);
+  assert.equal(page.get("blockers-feed").innerHTML, "");
+  assert.doesNotMatch(page.get("blockers-note").textContent, /No install blockers/);
+
+  vm.runInContext(`state.blockers = null; renderBlockers();`, page.context);
+  assert.match(page.get("blockers-note").textContent, /isn't available right now/);
+});
+
+test("changing the platform re-renders the blockers card (#93)", async () => {
+  const page = await loadPage("");
+  vm.runInContext(`state.blockers = ${JSON.stringify(blockersDoc)}; state.python = "3.14"; state.platform = "win-arm64"; renderBlockers();`, page.context);
+  assert.match(page.get("blockers-feed").innerHTML, /cryptography/);
+
+  page.get("platform-leaderboard").handlers.click(cardClick("musl-aarch64"));
+  assert.match(page.get("blockers-feed").innerHTML, /google-crc32c/);
+  assert.doesNotMatch(page.get("blockers-feed").innerHTML, /cryptography/);
+
+  page.get("omni-platform-select").handlers.change({ target: { value: "win-arm64" } });
+  assert.match(page.get("blockers-feed").innerHTML, /cryptography/);
+});
+
+test("the blockers card never renders a hostile name from blockers.json (#93)", async () => {
+  const page = await loadPage("");
+  const doc = { targets: { "3.14 win-arm64": { checked: 10, blockers: [
+    { name: "<img src=x onerror=alert(1)>", count: 3, examples: [] },
+    { name: "ok-pkg", count: 2, examples: ["\"><script>", "fine"] },
+  ] } } };
+  vm.runInContext(`state.blockers = ${JSON.stringify(doc)}; state.python = "3.14"; state.platform = "win-arm64"; renderBlockers();`, page.context);
+  const html = page.get("blockers-feed").innerHTML;
+  assert.doesNotMatch(html, /<img|<script|onerror/);
+  assert.match(html, /ok-pkg/);
+  assert.match(html, /e\.g\. <a href="p\/fine\/"/);
 });

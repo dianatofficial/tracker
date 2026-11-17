@@ -790,51 +790,48 @@ function renderPulse() {
     .join("");
 }
 
-// Top Install Blockers (#93)
+// Packages blocking the most other top-500 installs (#93), from data/blockers.json.
 function renderBlockers() {
   const container = $("blockers-feed");
   const badge = $("blockers-target-badge");
   const note = $("blockers-note");
-  if (!container) return;
+  if (!container || !note) return;
+  const placeholder = (text) => `<li class="feed-placeholder" style="color:var(--text-muted);padding:14px">${esc(text)}</li>`;
 
-  const targetLabel = `${state.python} ${state.platform}`;
-  if (badge) badge.textContent = state.platform;
-
-  const { checked, blockers } = typeof blockersForTarget === "function"
-    ? blockersForTarget(state.blockers, targetLabel)
-    : { checked: 0, blockers: [] };
-
-  if (!checked && !blockers.length) {
-    if (note) note.textContent = `Packages breaking top-500 dependency trees on ${esc(state.platform)}.`;
-    container.innerHTML = `<li class="feed-placeholder" style="color:var(--text-muted);padding:14px">No install blockers recorded for this platform.</li>`;
+  // Whole-tree installs are only scanned for some Pythons, so fall back to the newest one checked on this platform.
+  const label = blockersLabel(state.blockers, state.python, state.platform);
+  if (badge) badge.textContent = label || state.platform;
+  if (!label) {
+    note.textContent = state.blockers
+      ? `Whole-tree installs aren't checked on ${state.platform}, so there's nothing to rank here.`
+      : "The blockers list isn't available right now.";
+    container.innerHTML = "";
     return;
   }
-
-  if (note) {
-    note.textContent = checked
-      ? `Blocking the most installs on ${esc(state.platform)} (of ${fmt(checked)} checked top-500 packages):`
-      : `Packages breaking top-500 dependency trees on ${esc(state.platform)}.`;
-  }
-
+  const { checked, blockers } = blockersForTarget(state.blockers, label);
+  const python = label.split(" ")[0];
+  note.textContent =
+    `The packages whose missing wheel stops the most other top-500 packages installing from wheels alone on ${label}, ` +
+    `of ${fmt(checked)} checked.` +
+    (python !== state.python ? ` Installs aren't checked for Python ${state.python} here, so this is Python ${python}.` : "");
   if (!blockers.length) {
-    container.innerHTML = `<li class="feed-placeholder" style="color:var(--text-muted);padding:14px">No packages block installs on ${esc(targetLabel)}.</li>`;
+    container.innerHTML = placeholder("No missing wheel here holds back another top-500 package.");
     return;
   }
 
+  const link = (name, cls) => `<a href="p/${esc(canonicalName(name))}/" class="${cls}">${esc(name)}</a>`;
   container.innerHTML = blockers
     .slice(0, 15)
     .map((item) => {
-      const slug = canonicalName(item.name);
-      const examples = Array.isArray(item.examples) && item.examples.length
-        ? `<small class="pulse-meta">blocks ${fmt(item.count)} of ${fmt(checked)}: ${item.examples.map((ex) => `<a href="p/${canonicalName(ex)}/" class="blocker-ex">${esc(ex)}</a>`).join(", ")}</small>`
-        : `<small class="pulse-meta">blocks ${fmt(item.count)} of ${fmt(checked)} checked</small>`;
+      const others = `${fmt(item.count)} other top-500 install${item.count === 1 ? "" : "s"}`;
+      const examples = item.examples.length ? `, e.g. ${item.examples.map((ex) => link(ex, "blocker-ex")).join(", ")}` : "";
       return `<li>
         <div class="pulse-content">
           <div class="blocker-row">
-            <a href="p/${slug}/" class="pulse-pkg" data-pkg="${esc(item.name)}"><strong>${esc(item.name)}</strong></a>
-            <span class="blocker-count-badge">${fmt(item.count)} trees</span>
+            <strong>${link(item.name, "pulse-pkg")}</strong>
+            <span class="blocker-count-badge" title="Blocks ${others}">${fmt(item.count)}</span>
           </div>
-          ${examples}
+          <small class="pulse-meta">Blocks ${others}${examples}</small>
         </div>
       </li>`;
     })
@@ -1252,6 +1249,7 @@ async function main() {
     populateOmniSelects();
     renderLeaderboard();
     renderGaps();
+    renderBlockers();
     renderOmniAnswer();
     renderLookup($("search").value); // its "Why?" command names the selected platform
     writeHash();
@@ -1279,6 +1277,7 @@ async function main() {
     state.currentPage = 1;
     renderLeaderboard();
     renderGaps();
+    renderBlockers();
     renderOmniAnswer();
     renderLookup($("search").value);
     writeHash();

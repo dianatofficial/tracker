@@ -152,6 +152,54 @@ class BlockersTests(unittest.TestCase):
             build_blockers.build(self.coverage, self.out)
         self.assertFalse(self.out.exists())
 
+    def tree(self, rank, name, *blockers, status="source", label="3.14 win-arm64"):
+        return {
+            "rank": rank, "name": name,
+            "install": {label: {"status": status, "blockers": [{"name": b, "status": "source"} for b in blockers]}},
+        }
+
+    def blockers(self, label="3.14 win-arm64"):
+        self.write_scan()
+        build_blockers.build(self.coverage, self.out)
+        return json.loads(self.out.read_text(encoding="utf-8"))["targets"].get(label)
+
+    def test_a_package_does_not_block_its_own_tree(self):
+        # The scanner lists the root itself as a blocker when it has no wheel; that's most-wanted's job, not this.
+        self.scan["packages"] = [
+            self.tree(1, "grpcio-status", "grpcio"),
+            self.tree(2, "grpcio", "grpcio"),
+            self.tree(3, "Zope_Interface", "zope.interface"),
+        ]
+        win = self.blockers()
+        self.assertEqual(win["checked"], 3)
+        self.assertEqual(win["blockers"], [{"name": "grpcio", "count": 1, "examples": ["grpcio-status"]}])
+
+    def test_examples_are_the_three_highest_ranked_trees(self):
+        self.scan["packages"] = [self.tree(rank, f"app{rank}", "cffi") for rank in (5, 2, 4, 1, 3)]
+        win = self.blockers()
+        self.assertEqual(win["blockers"], [{"name": "cffi", "count": 5, "examples": ["app1", "app2", "app3"]}])
+
+    def test_name_spellings_are_one_blocker_and_ties_sort_by_name(self):
+        self.scan["packages"] = [
+            self.tree(1, "a", "zope.interface", "b-dep"),
+            self.tree(2, "b", "Zope_Interface", "a-dep"),
+        ]
+        win = self.blockers()
+        self.assertEqual([(b["name"], b["count"]) for b in win["blockers"]],
+                         [("zope.interface", 2), ("a-dep", 1), ("b-dep", 1)])
+
+    def test_only_checked_trees_and_targets_count(self):
+        self.scan["packages"] = [
+            self.tree(1, "a", "cffi", status="not_checked"),
+            self.tree(2, "b", "cffi", status="unknown"),
+            {"rank": 3, "name": "c", "install": {"3.14 win-arm64": "garbage"}},
+            {"rank": 4, "name": "d", "install": {"3.14 win-arm64": {"status": "source", "blockers": [None, "cffi"]}}},
+        ]
+        self.write_scan()
+        build_blockers.build(self.coverage, self.out)
+        targets = json.loads(self.out.read_text(encoding="utf-8"))["targets"]
+        self.assertEqual(targets, {"3.14 win-arm64": {"checked": 1, "blockers": []}})
+
     def test_cli_execution(self):
         self.write_scan()
         result = subprocess.run(

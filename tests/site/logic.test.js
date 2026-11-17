@@ -250,6 +250,17 @@ test("blockersForTarget extracts verified blockers and checked count (#93)", () 
   assert.deepEqual(empty.blockers, []);
 });
 
+test("blockersLabel falls back to the newest Python checked on the platform (#93)", () => {
+  const doc = { targets: { "3.14 win-arm64": {}, "3.14t win-arm64": {}, "3.13 win-arm64": {}, "3.14 linux-x86_64": {} } };
+  assert.equal(logic.blockersLabel(doc, "3.13", "win-arm64"), "3.13 win-arm64");
+  assert.equal(logic.blockersLabel(doc, "3.15", "win-arm64"), "3.14 win-arm64");
+  assert.equal(logic.blockersLabel(doc, "3.15t", "win-arm64"), "3.14t win-arm64");
+  assert.equal(logic.blockersLabel(doc, "3.13", "linux-x86_64"), "3.14 linux-x86_64");
+  assert.equal(logic.blockersLabel({ targets: { "3.14t win-arm64": {} } }, "3.13", "win-arm64"), "3.14t win-arm64");
+  assert.equal(logic.blockersLabel(doc, "3.13", "musl-aarch64"), null);
+  for (const bad of [null, undefined, 42, "str", [], {}]) assert.equal(logic.blockersLabel(bad, "3.13", "win-arm64"), null);
+});
+
 test("blockersForTarget rejects malformed entries and unsafe names (#93)", () => {
   for (const bad of [null, undefined, 42, "str", [], {}]) {
     assert.deepEqual(logic.blockersForTarget(bad, "3.14 win-arm64"), { checked: 0, blockers: [] });

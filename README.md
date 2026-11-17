@@ -45,7 +45,7 @@ In the repository, `data/campaigns/<id>.json` is a campaign's recorded starting 
 curl -fsS https://wheelgap.github.io/tracker/data/most-wanted.json
 ```
 
-`data/blockers.json` lists, for each target, the 50 packages that break the most top-500 dependency trees (`source` or `missing` as a blocker): `{"generated", "targets": {"3.14 win-arm64": {"checked": 498, "blockers": [{"name", "count", "examples": [...]}, ...]}, ...}}`. Only trees actually checked are counted (`not_checked` counts for nothing), and a tree with the same blocker more than once counts once. It's built when the site is published, by [`scripts/build_blockers.py`](scripts/build_blockers.py):
+`data/blockers.json` lists, for each target whose whole-tree installs were checked, the 50 packages whose missing wheel (`source` or `missing`) stops the most *other* top-500 packages installing from wheels alone: `{"generated", "targets": {"3.14 win-arm64": {"checked": 498, "blockers": [{"name", "count", "examples": [...]}, ...]}, ...}}`. `count` is how many other top-500 trees it blocks, and `examples` are the three highest-ranked of them. A package's own tree doesn't count (that's its own missing wheel, which `most-wanted.json` ranks), a tree with the same blocker by two routes counts once, and only checked trees count (`not_checked` counts for nothing). It's built when the site is published, by [`scripts/build_blockers.py`](scripts/build_blockers.py):
 
 ```sh
 curl -fsS https://wheelgap.github.io/tracker/data/blockers.json
