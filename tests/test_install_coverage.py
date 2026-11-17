@@ -76,6 +76,37 @@ class InstallCoverageTests(unittest.TestCase):
         self.assertNotIn("installs everywhere", page)
         self.assertNotIn("install-coverage", older)
 
+    def test_links_only_known_blockers_and_via_packages(self):
+        # All pages are pre-indexed, regardless of scan order.
+        self.scan["packages"][0]["install"]["3.14 win-arm64"]["blockers"] = [
+            {"name": "native", "version": "1.0", "status": "source",
+             "via": ["demo", "PyYAML", "native"]},
+            {"name": "unscanned", "version": "2.0", "status": "missing",
+             "via": ["demo", "unscanned"]},
+            {"name": "Typing_Extensions", "version": "4", "status": "source",
+             "via": ["demo", "Typing_Extensions"]},
+        ]
+        self.scan["packages"].append({**self.scan["packages"][1], "name": "PyYAML", "rank": 3})
+        self.scan["packages"].append({**self.scan["packages"][1], "name": "native", "rank": 4})
+        self.scan["packages"].append(
+            {**self.scan["packages"][1], "name": "typing.extensions", "rank": 5})
+        output = self.root / "site"
+        build_pages.build(self.coverage(), output, root=self.root)
+        page = (output / "p" / "demo" / "index.html").read_text(encoding="utf-8")
+        self.assertIn('<code><a href="../native/">native</a>==1.0</code>', page)
+        self.assertIn('<a href="../pyyaml/">PyYAML</a>', page)
+        self.assertIn('via <code>demo → <a href="../pyyaml/">PyYAML</a> → '
+                      '<a href="../native/">native</a></code>', page)
+        self.assertIn('<a href="../typing-extensions/">Typing_Extensions</a>==4', page)
+        self.assertIn('<code>unscanned==2.0</code>', page)
+        self.assertNotIn('href="../unscanned/"', page)
+        self.assertNotIn('href="../demo/"', page)
+
+    def test_escaped_unknown_names_never_become_links(self):
+        output = self.root / "site"
+        build_pages.build(self.coverage(), output, root=self.root)
+        page = (output / "p" / "demo" / "index.html").read_text(encoding="utf-8")
+        self.assertNotIn('href="../crypto', page)
 
 def blocker(name, status="source"):
     return {"name": name, "version": "1.0", "status": status, "via": ["mcp", name]}

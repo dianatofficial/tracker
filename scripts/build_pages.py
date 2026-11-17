@@ -346,22 +346,34 @@ def notes_html(notes: list[dict], name: str, gaps: list[str], today: str, exists
     return f'    <section class="notes">\n      <h2>Notes</h2>\n{intro}{"".join(cards)}{add}    </section>\n'
 
 
-def install_html(install: dict) -> str:
+def install_html(install: dict, page_names: set[str] | None = None, own_name: str = "") -> str:
     """Show the install result and dependency blockers for each checked target."""
     if not install:
         return ""
     e = html.escape
+    page_names = page_names or set()
+
+    def name_html(name: str, *, is_via: bool = False) -> str:
+        slug = canonical(name)
+        rendered = e(name)
+        if slug in page_names and SAFE_NAME.fullmatch(slug) and not (is_via and slug == own_name):
+            return f'<a href="../{e(quote(slug, safe=""))}/">{rendered}</a>'
+        return rendered
+
     rows = []
     for target, result in install.items():
         style, label = INSTALL_STATUS.get(result["status"], INSTALL_STATUS["not_checked"])
         blockers = []
         for item in result["blockers"]:
-            requirement = item["name"]
+            requirement = name_html(item["name"])
             if item["version"] is not None:
-                requirement += f"=={item['version']}"
+                requirement += f"=={e(str(item['version']))}"
             reason = "builds from source" if item["status"] == "source" else "has no distribution"
-            via = f" via <code>{e(' → '.join(item['via']))}</code>" if len(item["via"]) > 1 else ""  # not for the root itself
-            blockers.append(f"<li><code>{e(requirement)}</code> {reason}{via}</li>")
+            via = (
+                " via <code>" + " → ".join(name_html(name, is_via=True) for name in item["via"]) + "</code>"
+                if len(item["via"]) > 1 else ""
+            )
+            blockers.append(f"<li><code>{requirement}</code> {reason}{via}</li>")
         details = f"<ul>{''.join(blockers)}</ul>" if blockers else ""
         rows.append(
             f'          <tr><th scope="row">{e(target)}</th>'
@@ -476,6 +488,7 @@ def page(
     tree_badge: bool = False,
     builds: list[dict] | None = None,
     changes: list[dict] | None = None,
+    page_names: set[str] | None = None,
 ) -> str:
     """The package's page. notes are its notes from notes/ (stale ones are left out here);
     note_file says whether notes/<name>.toml exists, so "Add a note" opens the editor instead.
@@ -570,7 +583,7 @@ def page(
     notes_section = notes_html(
         shown, canonical(name), gap_platforms(package, targets), str(scan["generated"])[:10], note_file
     )
-    install_section = install_html(package.get("install", {}))
+    install_section = install_html(package.get("install", {}), page_names, canonical(name))
     # Only where the cell still says source: a wheel uploaded since the lab ran (or a target the scan dropped) makes
     # that result old news, not something to show.
     source_labels = {t["label"] for t, st in zip(targets, package["results"]) if st == "source"}
@@ -681,6 +694,7 @@ def build(
     trees = build_badges.tree_badges(scan)
     names: list[str] = []
     seen: set[str] = set()
+    valid_packages: list[tuple[str, dict]] = []
     for p in scan["packages"]:
         name = canonical(p["name"])
         if not SAFE_NAME.fullmatch(name) or name in seen:
@@ -688,6 +702,8 @@ def build(
             continue
         names.append(name)
         seen.add(name)
+        valid_packages.append((name, p))
+    for name, p in valid_packages:
         out = site / "p" / name
         out.mkdir(parents=True, exist_ok=True)
         note_file = notes_dir is not None and (notes_dir / f"{name}.toml").exists()
@@ -702,6 +718,7 @@ def build(
             name in trees,
             builds=lab.get(name, []),
             changes=pkg_changes.get(name, []),
+            page_names=seen,
         )
         (out / "index.html").write_text(text, encoding="utf-8")
     urls = [BASE_URL, f"{BASE_URL}check/"] + [f"{BASE_URL}p/{name}/" for name in names]
