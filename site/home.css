@@ -1684,6 +1684,33 @@ button, input, select {
   color: var(--navy);
 }
 
+/* Top Install Blockers (#93) */
+.blockers-card {
+  margin-bottom: 24px;
+}
+.blocker-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.blocker-count-badge {
+  font: 600 0.72rem var(--mono);
+  color: var(--missing);
+  background: var(--missing-bg);
+  padding: 1px 6px;
+  border-radius: 4px;
+  white-space: nowrap;
+}
+a.blocker-ex {
+  color: var(--text-muted);
+  text-decoration: underline;
+  text-decoration-color: var(--line);
+}
+a.blocker-ex:hover {
+  color: var(--wheel);
+}
+
 /* Autocomplete Search Dropdown */
 .autocomplete-wrapper {
   position: relative;

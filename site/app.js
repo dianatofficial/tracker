@@ -76,6 +76,7 @@ const state = {
   history: [],
   pyodide: {},
   changes: [],
+  blockers: null,
   python: null,
   platform: "musl-aarch64",
   shown: PAGE,
@@ -789,6 +790,57 @@ function renderPulse() {
     .join("");
 }
 
+// Top Install Blockers (#93)
+function renderBlockers() {
+  const container = $("blockers-feed");
+  const badge = $("blockers-target-badge");
+  const note = $("blockers-note");
+  if (!container) return;
+
+  const targetLabel = `${state.python} ${state.platform}`;
+  if (badge) badge.textContent = state.platform;
+
+  const { checked, blockers } = typeof blockersForTarget === "function"
+    ? blockersForTarget(state.blockers, targetLabel)
+    : { checked: 0, blockers: [] };
+
+  if (!checked && !blockers.length) {
+    if (note) note.textContent = `Packages breaking top-500 dependency trees on ${esc(state.platform)}.`;
+    container.innerHTML = `<li class="feed-placeholder" style="color:var(--text-muted);padding:14px">No install blockers recorded for this platform.</li>`;
+    return;
+  }
+
+  if (note) {
+    note.textContent = checked
+      ? `Blocking the most installs on ${esc(state.platform)} (of ${fmt(checked)} checked top-500 packages):`
+      : `Packages breaking top-500 dependency trees on ${esc(state.platform)}.`;
+  }
+
+  if (!blockers.length) {
+    container.innerHTML = `<li class="feed-placeholder" style="color:var(--text-muted);padding:14px">No packages block installs on ${esc(targetLabel)}.</li>`;
+    return;
+  }
+
+  container.innerHTML = blockers
+    .slice(0, 15)
+    .map((item) => {
+      const slug = canonicalName(item.name);
+      const examples = Array.isArray(item.examples) && item.examples.length
+        ? `<small class="pulse-meta">blocks ${fmt(item.count)} of ${fmt(checked)}: ${item.examples.map((ex) => `<a href="p/${canonicalName(ex)}/" class="blocker-ex">${esc(ex)}</a>`).join(", ")}</small>`
+        : `<small class="pulse-meta">blocks ${fmt(item.count)} of ${fmt(checked)} checked</small>`;
+      return `<li>
+        <div class="pulse-content">
+          <div class="blocker-row">
+            <a href="p/${slug}/" class="pulse-pkg" data-pkg="${esc(item.name)}"><strong>${esc(item.name)}</strong></a>
+            <span class="blocker-count-badge">${fmt(item.count)} trees</span>
+          </div>
+          ${examples}
+        </div>
+      </li>`;
+    })
+    .join("");
+}
+
 function canonicalName(name) {
   return name.toLowerCase().replace(/[-_.]+/g, "-");
 }
@@ -1082,6 +1134,7 @@ function renderAll() {
   renderTrends();
   renderGaps();
   renderPulse();
+  renderBlockers();
   writeHash();
 }
 
@@ -1155,18 +1208,20 @@ function initTheme() {
 async function main() {
   initTheme();
 
-  const [data, hist, pyodide, agreement, changes] = await Promise.all([
+  const [data, hist, pyodide, agreement, changes, blockers] = await Promise.all([
     fetch("data/coverage.json").then((r) => r.json()),
     fetch("data/history.json").then((r) => (r.ok ? r.json() : [])).catch(() => []),
     fetch("data/pyodide.json").then((r) => (r.ok ? r.json() : null)).catch(() => null),
     fetch("data/agreement.json").then((r) => (r.ok ? r.json() : null)).catch(() => null),
     fetch("data/changes.json").then((r) => (r.ok ? r.json() : [])).catch(() => []),
+    fetch("data/blockers.json").then((r) => (r.ok ? r.json() : null)).catch(() => null),
   ]);
 
   state.data = data;
   state.pyodide = pyodideReleases(pyodide);
   state.history = Array.isArray(hist) ? hist.filter((h) => h && typeof h === "object") : [];
   state.changes = Array.isArray(changes) ? changes.filter((c) => c && typeof c === "object") : [];
+  state.blockers = blockers && typeof blockers === "object" ? blockers : null;
   state.python = pythons()[0];
 
   const pkg = readHash();

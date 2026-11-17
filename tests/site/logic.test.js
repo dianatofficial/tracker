@@ -223,3 +223,55 @@ test("lookup whole-tree data keeps every blocker, like the package pages (#92)",
   assert.equal(row.blockers.length, 12);
   assert.equal(row.blockers[11].name, "dep11");
 });
+
+test("blockersForTarget extracts verified blockers and checked count (#93)", () => {
+  const doc = {
+    generated: "2026-11-17T00:00:00+00:00",
+    targets: {
+      "3.14 win-arm64": {
+        checked: 412,
+        blockers: [
+          { name: "cryptography", count: 41, examples: ["pyjwt", "urllib3", "requests", "ignored"] },
+          { name: "cffi", count: 12, examples: ["cryptography"] },
+        ],
+      },
+    },
+  };
+  const { checked, blockers } = logic.blockersForTarget(doc, "3.14 win-arm64");
+  assert.equal(checked, 412);
+  assert.equal(blockers.length, 2);
+  assert.equal(blockers[0].name, "cryptography");
+  assert.equal(blockers[0].count, 41);
+  // Examples capped at 3
+  assert.deepEqual(blockers[0].examples, ["pyjwt", "urllib3", "requests"]);
+
+  const empty = logic.blockersForTarget(doc, "3.13 win-arm64");
+  assert.equal(empty.checked, 0);
+  assert.deepEqual(empty.blockers, []);
+});
+
+test("blockersForTarget rejects malformed entries and unsafe names (#93)", () => {
+  for (const bad of [null, undefined, 42, "str", [], {}]) {
+    assert.deepEqual(logic.blockersForTarget(bad, "3.14 win-arm64"), { checked: 0, blockers: [] });
+  }
+
+  const doc = {
+    targets: {
+      "3.14 win-arm64": {
+        checked: -5,
+        blockers: [
+          null,
+          { name: "<script>", count: 10 },
+          { name: "good-pkg", count: -1 },
+          { name: "good-pkg", count: 5, examples: ["<invalid>", "valid-dep"] },
+        ],
+      },
+    },
+  };
+  const { checked, blockers } = logic.blockersForTarget(doc, "3.14 win-arm64");
+  assert.equal(checked, 0);
+  assert.equal(blockers.length, 1);
+  assert.equal(blockers[0].name, "good-pkg");
+  assert.equal(blockers[0].count, 5);
+  assert.deepEqual(blockers[0].examples, ["valid-dep"]);
+});

@@ -324,8 +324,25 @@
           <button class="more visually-hidden" id="more" hidden>Show more</button>
         </section>
 
-        <!-- Sidebar Column: Ecosystem Pulse -->
+        <!-- Sidebar Column: Ecosystem Pulse & Top Blockers -->
         <aside class="sidebar-col">
+          <!-- Top Install Blockers (#93) -->
+          <section class="panel-card blockers-card" id="blockers-card" aria-labelledby="blockers-title">
+            <div class="section-head">
+              <div class="title-with-desc">
+                <h3 id="blockers-title" class="sub-heading">Blocking the Most Installs</h3>
+                <span class="time-badge" id="blockers-target-badge">…</span>
+              </div>
+            </div>
+            <p class="pulse-note" id="blockers-note">Packages breaking top-500 dependency trees on this platform.</p>
+            <ol class="pulse-feed blockers-feed" id="blockers-feed">
+              <li class="feed-placeholder">Loading top blockers…</li>
+            </ol>
+            <div class="pulse-footer">
+              <a href="data/blockers.json" class="pulse-link" target="_blank" rel="noopener">Raw blockers.json →</a>
+            </div>
+          </section>
+
           <!-- Ecosystem Pulse (Recent Changes Feed) -->
           <section class="panel-card pulse-card" aria-labelledby="pulse-title">
             <div class="section-head">

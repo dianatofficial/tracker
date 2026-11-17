@@ -251,6 +251,7 @@ jobs:
           python3 scripts/build_lookup.py data/coverage.json _site/data/packages
           python3 scripts/build_csv.py data/coverage.json _site/data/coverage.csv
           python3 scripts/build_most_wanted.py data/coverage.json _site/data/most-wanted.json
+          python3 scripts/build_blockers.py data/coverage.json _site/data/blockers.json
           python3 scripts/build_badges.py data/coverage.json _site/badge
           # The same verified wheel index is used for package-page hints and the legacy index.
           curl -sfL --max-time 60 -o "$RUNNER_TEMP/gap-wheels.json" https://wheelgap.github.io/wheels/data/gap-wheels.json \

@@ -419,3 +419,28 @@ test("a pinned lookup shows neither whole-tree results nor way-out hints (#92)",
   assert.doesNotMatch(html, /Install coverage with dependencies/);
   assert.doesNotMatch(html, /is the last release with a wheel here/);
 });
+
+test("renderBlockers displays top install blockers with counts, examples, and links (#93)", async () => {
+  const page = await loadPage("");
+  const blockersData = {
+    generated: "2026-11-17T00:00:00+00:00",
+    targets: {
+      "3.14 win-arm64": {
+        checked: 412,
+        blockers: [
+          { name: "cryptography", count: 41, examples: ["pyjwt", "urllib3", "requests"] },
+          { name: "cffi", count: 12, examples: ["cryptography"] },
+        ],
+      },
+    },
+  };
+  vm.runInContext(`state.blockers = ${JSON.stringify(blockersData)}; state.python = "3.14"; state.platform = "win-arm64"; renderBlockers();`, page.context);
+  const note = page.get("blockers-note").textContent;
+  assert.match(note, /Blocking the most installs on win-arm64/);
+  assert.match(note, /412 checked/);
+  const html = page.get("blockers-feed").innerHTML;
+  assert.match(html, /cryptography/);
+  assert.match(html, /41 trees/);
+  assert.match(html, /pyjwt/);
+  assert.match(html, /href="p\/cryptography\/"/);
+});

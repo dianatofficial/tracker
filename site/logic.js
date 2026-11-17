@@ -176,6 +176,32 @@ function pyodideFooter(releases, anyBundled = false) {
   );
 }
 
+// Validated blockers for one target from data/blockers.json.
+// Returns { checked: number, blockers: [{ name, count, examples }] }.
+function blockersForTarget(raw, targetLabel) {
+  if (!raw || typeof raw !== "object" || !raw.targets || typeof raw.targets !== "object" || typeof targetLabel !== "string") {
+    return { checked: 0, blockers: [] };
+  }
+  const entry = raw.targets[targetLabel];
+  if (!entry || typeof entry !== "object") return { checked: 0, blockers: [] };
+  const checked = Number.isInteger(entry.checked) && entry.checked >= 0 ? entry.checked : 0;
+  const blockers = [];
+  if (Array.isArray(entry.blockers)) {
+    for (const b of entry.blockers) {
+      if (!b || typeof b !== "object" || !isPackageName(b.name) || !Number.isInteger(b.count) || b.count <= 0) continue;
+      const examples = Array.isArray(b.examples)
+        ? b.examples.filter((name) => isPackageName(name)).slice(0, 3)
+        : [];
+      blockers.push({
+        name: b.name,
+        count: b.count,
+        examples,
+      });
+    }
+  }
+  return { checked, blockers };
+}
+
 // What a build lab result (data/builds.json, see scripts/build_lab.py) means for someone without a wheel:
 // {kind, text}. kind: "works" (built, imported, and on free-threaded Python the GIL stayed off), "gil" (works only
 // with the GIL back on), "pure" (a pure-Python wheel: no compiled part, or an optional one skipped), "partial" (a
@@ -202,7 +228,7 @@ function labVerdict(r) {
 
 if (typeof module !== "undefined" && module.exports) {
   module.exports = {
-    BUNDLED_NOTE, isPackageName, isPackageSpec, splitSpec, installable, gapsAt, platformStats, pyodideReleases, bundledInfo, bundledDetail, lookupInstallData, gapWheelTargets, whyCommand, pyodideFooter,
+    BUNDLED_NOTE, isPackageName, isPackageSpec, splitSpec, installable, gapsAt, platformStats, pyodideReleases, bundledInfo, bundledDetail, lookupInstallData, gapWheelTargets, blockersForTarget, whyCommand, pyodideFooter,
     labVerdict,
   };
 }
