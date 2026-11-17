@@ -12,7 +12,7 @@ import json
 import sys
 from pathlib import Path
 
-MAX_DAYS = 730  # Cap at a couple of years (2 years of daily scans)
+MAX_DAYS = 730  # Keep about two years of nightly scans (one entry per date)
 
 
 def update(coverage_path: Path, history_path: Path, max_days: int = MAX_DAYS) -> dict:
@@ -30,22 +30,6 @@ def update(coverage_path: Path, history_path: Path, max_days: int = MAX_DAYS) ->
         history = history[-max_days:]
     history_path.write_text(json.dumps(history, separators=(",", ":")) + "\n", encoding="utf-8")
     return entry
-
-
-def version_marks(history: list[dict]) -> list[dict]:
-    """Identify the first history entry for each new wheelgap release."""
-    marks = []
-    previous = ""
-    for entry in history:
-        version = str(entry.get("wheelgap") or "")
-        if previous and version and version != previous:
-            marks.append({
-                "date": entry["date"],
-                "wheelgap": version,
-                "previous": previous,
-            })
-        previous = version or previous
-    return marks
 
 
 if __name__ == "__main__":

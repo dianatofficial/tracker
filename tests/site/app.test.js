@@ -431,8 +431,21 @@ test("sparkline labels the latest point and marks version upgrade points (#78)",
   assert.match(svg, /class="spark-label"[^>]*>85\.0%/);
   assert.match(svg, /class="[^"]*spark-upgrade[^"]*"/);
   assert.match(svg, /spark-upgrade-line/);
-  assert.match(svg, /wheelgap 0\.7\.0 upgrade/);
+  assert.match(svg, /wheelgap changed to 0\.7\.0/);
   assert.match(svg, /latest/);
+  assert.equal((svg.match(/<circle class=/g) || []).length, 1, "only the marked point gets a class");
+});
+
+test("sparkline marks the night Pyodide's own builds start counting, and escapes what it marks (#78)", async () => {
+  const page = await loadPage("");
+  const points = [
+    { date: "2026-11-09", value: 80.0, upgrade: "", bundledStart: false },
+    { date: "2026-11-10", value: 82.0, upgrade: "<b>x</b>", bundledStart: true },
+  ];
+  const svg = vm.runInContext(`sparkline(${JSON.stringify(points)}, "Pyodide")`, page.context);
+  assert.match(svg, /Pyodide's own builds counted from here/);
+  assert.match(svg, /wheelgap changed to &lt;b&gt;x&lt;\/b&gt;/);
+  assert.doesNotMatch(svg, /<b>/);
 });
 
 test("renderTrends updates trend-note with latest point and upgrade mentions (#78)", async () => {
@@ -454,5 +467,23 @@ test("renderTrends updates trend-note with latest point and upgrade mentions (#7
   vm.runInContext(`state.history = ${JSON.stringify(history)}; state.python = "3.13"; state.showCompiledOnly = false; renderTrends();`, page.context);
   const note = page.get("trend-note").textContent;
   assert.match(note, /with the latest point labelled/);
-  assert.match(note, /Points where wheelgap was upgraded are marked/);
+  assert.match(note, /Marked points aren't like for like/);
+});
+
+test("the trend note says the Pyodide sparkline counts Pyodide's own builds, like the percentages (#78)", async () => {
+  const page = await loadPage("");
+  const history = [
+    { date: "2026-11-09", wheelgap: "0.9.0", packages: 5000, summary: { "3.13 win-arm64": { wheel: 4000 } } },
+    { date: "2026-11-10", wheelgap: "0.9.0", packages: 5000, summary: { "3.13 win-arm64": { wheel: 4010 } } },
+  ];
+  vm.runInContext(
+    `state.history = ${JSON.stringify(history)}; state.python = "3.13"; state.showCompiledOnly = false;
+     state.data.summary = Object.assign({}, state.data.summary, { "3.13 pyodide": { wheel: 4068, bundled: 82 } });
+     renderTrends();`,
+    page.context,
+  );
+  const note = page.get("trend-note").textContent;
+  assert.match(note, /On Pyodide they also count Pyodide's own builds/);
+  assert.doesNotMatch(note, /PyPI wheels only/);
+  assert.doesNotMatch(note, /Marked points/);
 });

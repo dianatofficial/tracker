@@ -87,20 +87,6 @@ class UpdateHistoryTests(TempDir):
         dates = [h["date"] for h in json.loads(history.read_text(encoding="utf-8"))]
         self.assertEqual(dates, ["2026-11-04", "2026-11-05", "2026-11-10"])
 
-    def test_version_marks(self):
-        history = [
-            {"date": "2026-11-08", "wheelgap": "0.6.0"},
-            {"date": "2026-11-09", "wheelgap": "0.6.0"},
-            {"date": "2026-11-10", "wheelgap": "0.7.0"},
-            {"date": "2026-11-11", "wheelgap": "0.7.0"},
-            {"date": "2026-11-12", "wheelgap": "0.8.0"},
-        ]
-        marks = update_history.version_marks(history)
-        self.assertEqual(marks, [
-            {"date": "2026-11-10", "wheelgap": "0.7.0", "previous": "0.6.0"},
-            {"date": "2026-11-12", "wheelgap": "0.8.0", "previous": "0.7.0"},
-        ])
-
 
 class CheckScanTests(unittest.TestCase):
     def setUp(self):

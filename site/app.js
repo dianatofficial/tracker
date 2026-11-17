@@ -199,11 +199,13 @@ function previousScan() {
 
 // Sparklines helper
 function coverageSeries(label) {
-  return typeof chartSeries === "function"
-    ? chartSeries(state.history, label)
-    : state.history
-        .filter((h) => h.summary && h.summary[label] && Number.isFinite(h.summary[label].wheel) && h.packages)
-        .map((h) => ({ date: h.date, value: (100 * h.summary[label].wheel) / h.packages }));
+  return chartSeries(state.history, label);
+}
+
+// Why a point isn't like for like with the one before it, or "".
+function sparkMark(p) {
+  return [p.upgrade ? `wheelgap changed to ${p.upgrade}` : "", p.bundledStart ? "Pyodide's own builds counted from here" : ""]
+    .filter(Boolean).join("; ");
 }
 
 function sparkline(points, name) {
@@ -220,16 +222,17 @@ function sparkline(points, name) {
   const path = points.map((p, i) => `${i ? "L" : "M"}${x(i).toFixed(1)},${y(p.value).toFixed(1)}`).join(" ");
 
   const upgradeLines = points
-    .map((p, i) => (p.upgrade ? `<line class="spark-upgrade-line" x1="${x(i).toFixed(1)}" y1="${PAD_Y}" x2="${x(i).toFixed(1)}" y2="${(H - PAD_Y).toFixed(1)}"><title>${esc(p.date)}: wheelgap ${esc(p.upgrade)} upgrade</title></line>` : ""))
+    .map((p, i) => (sparkMark(p) ? `<line class="spark-upgrade-line" x1="${x(i).toFixed(1)}" y1="${PAD_Y}" x2="${x(i).toFixed(1)}" y2="${(H - PAD_Y).toFixed(1)}"><title>${esc(p.date)}: ${esc(sparkMark(p))}</title></line>` : ""))
     .join("");
 
   const shown = points.length <= 31 ? points.map((p, i) => [p, i]) : [[points[points.length - 1], points.length - 1]];
   const dots = shown
     .map(([p, i]) => {
-      const upgradeClass = p.upgrade ? " spark-upgrade" : "";
-      const upgradeNote = p.upgrade ? ` (wheelgap ${esc(p.upgrade)} upgrade)` : "";
-      const r = p.upgrade ? 3.5 : 2;
-      return `<circle class="${upgradeClass}" cx="${x(i).toFixed(1)}" cy="${y(p.value).toFixed(1)}" r="${r}"><title>${esc(p.date)}: ${p.value.toFixed(1)}%${upgradeNote}</title></circle>`;
+      const mark = sparkMark(p);
+      const upgradeClass = mark ? ' class="spark-upgrade"' : "";
+      const upgradeNote = mark ? ` (${esc(mark)})` : "";
+      const r = mark ? 3.5 : 2;
+      return `<circle${upgradeClass} cx="${x(i).toFixed(1)}" cy="${y(p.value).toFixed(1)}" r="${r}"><title>${esc(p.date)}: ${p.value.toFixed(1)}%${upgradeNote}</title></circle>`;
     })
     .join("");
 
@@ -239,8 +242,8 @@ function sparkline(points, name) {
   const labelY = Math.max(PAD_Y + 7, Math.min(H - PAD_Y, lastY + 3));
   const latestText = `<text class="spark-label" x="${(lastX + 4).toFixed(1)}" y="${labelY.toFixed(1)}">${last.value.toFixed(1)}%</text>`;
 
-  const upgrades = points.filter((p) => p.upgrade);
-  const upgradeLabel = upgrades.length ? `; upgraded to ${upgrades.map((u) => `${u.upgrade} on ${u.date}`).join(", ")}` : "";
+  const marks = points.filter((p) => sparkMark(p));
+  const upgradeLabel = marks.length ? `; ${marks.map((m) => `${sparkMark(m)} on ${m.date}`).join(", ")}` : "";
   const label = `${name}: ${first.value.toFixed(1)}% on ${first.date}, ${last.value.toFixed(1)}% on ${last.date} (latest)${upgradeLabel}`;
 
   return `<svg class="spark" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(label)}">
@@ -253,12 +256,14 @@ function renderTrends() {
     .filter((t) => t.python === state.python)
     .map((t) => coverageSeries(t.label));
   const dates = seriesList.flatMap((s) => s.map((p) => p.date)).sort();
-  const hasUpgrades = seriesList.some((s) => s.some((p) => p.upgrade));
-  const upgradeNote = hasUpgrades ? " Points where wheelgap was upgraded are marked." : "";
+  const hasUpgrades = seriesList.some((s) => s.some((p) => sparkMark(p)));
+  const upgradeNote = hasUpgrades
+    ? " Marked points aren't like for like with the night before: a new wheelgap version, or Pyodide's own builds counted from then on."
+    : "";
   const pyodideBundled = (state.data.summary?.[`${state.python} pyodide`]?.bundled ?? 0) > 0;
   $("trend-note").textContent = dates.length > 1 && !state.showCompiledOnly
     ? `Sparklines: the share of all packages with a wheel for Python ${state.python}, one point per nightly scan from ${dates[0]} to ${dates[dates.length - 1]}, with the latest point labelled. Each is scaled to its own range.${upgradeNote}` +
-      (pyodideBundled ? " On Pyodide that's PyPI wheels only: the percentages also count Pyodide's own builds." : "")
+      (pyodideBundled ? " On Pyodide they also count Pyodide's own builds, like the percentages." : "")
     : "";
 }
 
