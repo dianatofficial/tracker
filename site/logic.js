@@ -64,6 +64,39 @@ function platformStats(s, prev, n, prevWheelgap, wheelgap) {
     ["wheel", "bundled", "source", "missing", "unknown"].map((k) => [k, share(k)])) };
 }
 
+// Per-day wheel coverage points for a target label over time from history.json.
+// Each point has: date, value (percentage: wheel + bundled), wheel, bundled, source, missing, packages,
+// wheelgap version, and upgrade (new version string if upgraded from the previous entry, else "").
+function chartSeries(history, label) {
+  if (!Array.isArray(history)) return [];
+  const points = [];
+  let previousVersion = "";
+  for (const h of history) {
+    if (!h || typeof h !== "object") continue;
+    const cell = h.summary?.[label];
+    if (!cell || !Number.isFinite(cell.wheel) || !h.packages) continue;
+    const version = String(h.wheelgap || "");
+    const upgrade = previousVersion && version && version !== previousVersion ? version : "";
+    previousVersion = version || previousVersion;
+
+    const bundled = Number.isFinite(cell.bundled) ? cell.bundled : 0;
+    const wheels = cell.wheel + bundled;
+    const value = (100 * wheels) / h.packages;
+    points.push({
+      date: h.date,
+      value,
+      wheel: cell.wheel,
+      bundled,
+      source: cell.source ?? 0,
+      missing: cell.missing ?? 0,
+      packages: h.packages,
+      wheelgap: version,
+      upgrade,
+    });
+  }
+  return points;
+}
+
 // data/pyodide.json -> {python: {pyodide, lock}}, keeping only well-formed entries; anything else is {}.
 function pyodideReleases(raw) {
   const out = {};
@@ -202,7 +235,7 @@ function labVerdict(r) {
 
 if (typeof module !== "undefined" && module.exports) {
   module.exports = {
-    BUNDLED_NOTE, isPackageName, isPackageSpec, splitSpec, installable, gapsAt, platformStats, pyodideReleases, bundledInfo, bundledDetail, lookupInstallData, gapWheelTargets, whyCommand, pyodideFooter,
+    BUNDLED_NOTE, isPackageName, isPackageSpec, splitSpec, installable, gapsAt, platformStats, chartSeries, pyodideReleases, bundledInfo, bundledDetail, lookupInstallData, gapWheelTargets, whyCommand, pyodideFooter,
     labVerdict,
   };
 }

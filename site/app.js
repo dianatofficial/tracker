@@ -199,13 +199,15 @@ function previousScan() {
 
 // Sparklines helper
 function coverageSeries(label) {
-  return state.history
-    .filter((h) => h.summary && h.summary[label] && Number.isFinite(h.summary[label].wheel) && h.packages)
-    .map((h) => ({ date: h.date, value: (100 * h.summary[label].wheel) / h.packages }));
+  return typeof chartSeries === "function"
+    ? chartSeries(state.history, label)
+    : state.history
+        .filter((h) => h.summary && h.summary[label] && Number.isFinite(h.summary[label].wheel) && h.packages)
+        .map((h) => ({ date: h.date, value: (100 * h.summary[label].wheel) / h.packages }));
 }
 
 function sparkline(points, name) {
-  const W = 160, H = 36, PAD = 4;
+  const W = 160, H = 36, PAD_LEFT = 4, PAD_RIGHT = 34, PAD_Y = 4;
   const values = points.map((p) => p.value);
   let lo = Math.min(...values), hi = Math.max(...values);
   if (hi - lo < 0.5) {
@@ -213,29 +215,49 @@ function sparkline(points, name) {
     lo = mid - 0.25;
     hi = mid + 0.25;
   }
-  const x = (i) => PAD + (i * (W - 2 * PAD)) / (points.length - 1);
-  const y = (v) => H - PAD - ((v - lo) * (H - 2 * PAD)) / (hi - lo);
+  const x = (i) => PAD_LEFT + (i * (W - PAD_LEFT - PAD_RIGHT)) / (points.length - 1);
+  const y = (v) => H - PAD_Y - ((v - lo) * (H - 2 * PAD_Y)) / (hi - lo);
   const path = points.map((p, i) => `${i ? "L" : "M"}${x(i).toFixed(1)},${y(p.value).toFixed(1)}`).join(" ");
+
+  const upgradeLines = points
+    .map((p, i) => (p.upgrade ? `<line class="spark-upgrade-line" x1="${x(i).toFixed(1)}" y1="${PAD_Y}" x2="${x(i).toFixed(1)}" y2="${(H - PAD_Y).toFixed(1)}"><title>${esc(p.date)}: wheelgap ${esc(p.upgrade)} upgrade</title></line>` : ""))
+    .join("");
+
   const shown = points.length <= 31 ? points.map((p, i) => [p, i]) : [[points[points.length - 1], points.length - 1]];
   const dots = shown
-    .map(([p, i]) => `<circle cx="${x(i).toFixed(1)}" cy="${y(p.value).toFixed(1)}" r="2"><title>${esc(p.date)}: ${p.value.toFixed(1)}%</title></circle>`)
+    .map(([p, i]) => {
+      const upgradeClass = p.upgrade ? " spark-upgrade" : "";
+      const upgradeNote = p.upgrade ? ` (wheelgap ${esc(p.upgrade)} upgrade)` : "";
+      const r = p.upgrade ? 3.5 : 2;
+      return `<circle class="${upgradeClass}" cx="${x(i).toFixed(1)}" cy="${y(p.value).toFixed(1)}" r="${r}"><title>${esc(p.date)}: ${p.value.toFixed(1)}%${upgradeNote}</title></circle>`;
+    })
     .join("");
+
   const first = points[0], last = points[points.length - 1];
-  const label = `${name}: ${first.value.toFixed(1)}% on ${first.date}, ${last.value.toFixed(1)}% on ${last.date}`;
+  const lastX = x(points.length - 1);
+  const lastY = y(last.value);
+  const labelY = Math.max(PAD_Y + 7, Math.min(H - PAD_Y, lastY + 3));
+  const latestText = `<text class="spark-label" x="${(lastX + 4).toFixed(1)}" y="${labelY.toFixed(1)}">${last.value.toFixed(1)}%</text>`;
+
+  const upgrades = points.filter((p) => p.upgrade);
+  const upgradeLabel = upgrades.length ? `; upgraded to ${upgrades.map((u) => `${u.upgrade} on ${u.date}`).join(", ")}` : "";
+  const label = `${name}: ${first.value.toFixed(1)}% on ${first.date}, ${last.value.toFixed(1)}% on ${last.date} (latest)${upgradeLabel}`;
+
   return `<svg class="spark" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(label)}">
-    <path d="${path}"></path>${dots}</svg>`;
+    ${upgradeLines}<path d="${path}"></path>${dots}${latestText}</svg>`;
 }
 
 function renderTrends() {
   // The sparklines are on the leaderboard cards; this is the note under them, saying what they plot.
-  const dates = state.data.targets
+  const seriesList = state.data.targets
     .filter((t) => t.python === state.python)
-    .flatMap((t) => coverageSeries(t.label))
-    .map((p) => p.date)
-    .sort();
+    .map((t) => coverageSeries(t.label));
+  const dates = seriesList.flatMap((s) => s.map((p) => p.date)).sort();
+  const hasUpgrades = seriesList.some((s) => s.some((p) => p.upgrade));
+  const upgradeNote = hasUpgrades ? " Points where wheelgap was upgraded are marked." : "";
   const pyodideBundled = (state.data.summary?.[`${state.python} pyodide`]?.bundled ?? 0) > 0;
   $("trend-note").textContent = dates.length > 1 && !state.showCompiledOnly
-    ? `Sparklines: the share of all packages with a wheel for Python ${state.python}, one point per nightly scan from ${dates[0]} to ${dates[dates.length - 1]}. Each is scaled to its own range.` +
+    ? `Sparklines: the share of all packages with a wheel for Python ${state.python}, one point per nightly scan from ${dates[0]} to ${dates[dates.length - 1]}, with the latest point labelled. Each is scaled to its own range.${upgradeNote}` +
       (pyodideBundled ? " On Pyodide that's PyPI wheels only: the percentages also count Pyodide's own builds." : "")
     : "";
 }

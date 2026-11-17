@@ -419,3 +419,40 @@ test("a pinned lookup shows neither whole-tree results nor way-out hints (#92)",
   assert.doesNotMatch(html, /Install coverage with dependencies/);
   assert.doesNotMatch(html, /is the last release with a wheel here/);
 });
+
+test("sparkline labels the latest point and marks version upgrade points (#78)", async () => {
+  const page = await loadPage("");
+  const points = [
+    { date: "2026-11-09", value: 80.0, upgrade: "" },
+    { date: "2026-11-10", value: 82.5, upgrade: "0.7.0" },
+    { date: "2026-11-11", value: 85.0, upgrade: "" },
+  ];
+  const svg = vm.runInContext(`sparkline(${JSON.stringify(points)}, "Windows on ARM")`, page.context);
+  assert.match(svg, /class="spark-label"[^>]*>85\.0%/);
+  assert.match(svg, /class="[^"]*spark-upgrade[^"]*"/);
+  assert.match(svg, /spark-upgrade-line/);
+  assert.match(svg, /wheelgap 0\.7\.0 upgrade/);
+  assert.match(svg, /latest/);
+});
+
+test("renderTrends updates trend-note with latest point and upgrade mentions (#78)", async () => {
+  const page = await loadPage("");
+  const history = [
+    {
+      date: "2026-11-09",
+      wheelgap: "0.6.3",
+      packages: 5000,
+      summary: { "3.13 win-arm64": { wheel: 4000 } },
+    },
+    {
+      date: "2026-11-10",
+      wheelgap: "0.7.0",
+      packages: 5000,
+      summary: { "3.13 win-arm64": { wheel: 4200 } },
+    },
+  ];
+  vm.runInContext(`state.history = ${JSON.stringify(history)}; state.python = "3.13"; state.showCompiledOnly = false; renderTrends();`, page.context);
+  const note = page.get("trend-note").textContent;
+  assert.match(note, /with the latest point labelled/);
+  assert.match(note, /Points where wheelgap was upgraded are marked/);
+});

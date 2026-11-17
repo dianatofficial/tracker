@@ -223,3 +223,88 @@ test("lookup whole-tree data keeps every blocker, like the package pages (#92)",
   assert.equal(row.blockers.length, 12);
   assert.equal(row.blockers[11].name, "dep11");
 });
+
+test("chartSeries calculates percentages and extracts values per target (#78)", () => {
+  const history = [
+    {
+      date: "2026-11-09",
+      wheelgap: "0.6.3",
+      packages: 5000,
+      summary: { "3.13 win-arm64": { wheel: 4000, source: 800, missing: 200 } },
+    },
+    {
+      date: "2026-11-10",
+      wheelgap: "0.6.3",
+      packages: 5000,
+      summary: { "3.13 win-arm64": { wheel: 4100, source: 700, missing: 200 } },
+    },
+  ];
+  const series = logic.chartSeries(history, "3.13 win-arm64");
+  assert.equal(series.length, 2);
+  assert.equal(series[0].date, "2026-11-09");
+  assert.equal(series[0].value, 80);
+  assert.equal(series[0].upgrade, "");
+  assert.equal(series[1].date, "2026-11-10");
+  assert.equal(series[1].value, 82);
+  assert.equal(series[1].upgrade, "");
+});
+
+test("chartSeries marks wheelgap upgrade points (#78)", () => {
+  const history = [
+    {
+      date: "2026-11-09",
+      wheelgap: "0.6.3",
+      packages: 1000,
+      summary: { "3.13 win-arm64": { wheel: 800, source: 200 } },
+    },
+    {
+      date: "2026-11-10",
+      wheelgap: "0.7.0",
+      packages: 1000,
+      summary: { "3.13 win-arm64": { wheel: 820, source: 180 } },
+    },
+    {
+      date: "2026-11-11",
+      wheelgap: "0.7.0",
+      packages: 1000,
+      summary: { "3.13 win-arm64": { wheel: 830, source: 170 } },
+    },
+  ];
+  const series = logic.chartSeries(history, "3.13 win-arm64");
+  assert.equal(series.length, 3);
+  assert.equal(series[0].upgrade, "");
+  assert.equal(series[1].upgrade, "0.7.0");
+  assert.equal(series[2].upgrade, "");
+});
+
+test("chartSeries includes Pyodide bundled builds in installable percentage (#78)", () => {
+  const history = [
+    {
+      date: "2026-11-09",
+      wheelgap: "0.7.0",
+      packages: 100,
+      summary: { "3.13 pyodide": { wheel: 70, bundled: 10, missing: 20 } },
+    },
+  ];
+  const series = logic.chartSeries(history, "3.13 pyodide");
+  assert.equal(series.length, 1);
+  assert.equal(series[0].wheel, 70);
+  assert.equal(series[0].bundled, 10);
+  assert.equal(series[0].value, 80);
+});
+
+test("chartSeries skips invalid entries safely (#78)", () => {
+  for (const bad of [null, undefined, 42, "str", [], {}]) {
+    assert.deepEqual(logic.chartSeries(bad, "3.13 win-arm64"), []);
+  }
+  const mixed = [
+    null,
+    { date: "2026-11-09" }, // no summary
+    { date: "2026-11-10", packages: 0, summary: { "3.13 win-arm64": { wheel: 10 } } }, // 0 packages
+    { date: "2026-11-11", packages: 100, summary: { "3.13 win-arm64": { wheel: 50 } } },
+  ];
+  const series = logic.chartSeries(mixed, "3.13 win-arm64");
+  assert.equal(series.length, 1);
+  assert.equal(series[0].date, "2026-11-11");
+  assert.equal(series[0].value, 50);
+});
