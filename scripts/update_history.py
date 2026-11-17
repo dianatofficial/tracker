@@ -12,8 +12,10 @@ import json
 import sys
 from pathlib import Path
 
+MAX_DAYS = 730  # Keep about two years of nightly scans (one entry per date)
 
-def update(coverage_path: Path, history_path: Path) -> dict:
+
+def update(coverage_path: Path, history_path: Path, max_days: int = MAX_DAYS) -> dict:
     scan = json.loads(coverage_path.read_text(encoding="utf-8"))
     entry = {
         "date": scan["generated"][:10],
@@ -24,6 +26,8 @@ def update(coverage_path: Path, history_path: Path) -> dict:
     history = json.loads(history_path.read_text(encoding="utf-8")) if history_path.exists() else []
     history = [h for h in history if h["date"] != entry["date"]] + [entry]
     history.sort(key=lambda h: h["date"])
+    if len(history) > max_days:
+        history = history[-max_days:]
     history_path.write_text(json.dumps(history, separators=(",", ":")) + "\n", encoding="utf-8")
     return entry
 

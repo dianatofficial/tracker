@@ -285,4 +285,111 @@ test("blockersForTarget rejects malformed entries and unsafe names (#93)", () =>
   assert.equal(blockers[0].name, "good-pkg");
   assert.equal(blockers[0].count, 5);
   assert.deepEqual(blockers[0].examples, ["valid-dep"]);
+
+test("chartSeries calculates percentages and extracts values per target (#78)", () => {
+  const history = [
+    {
+      date: "2026-11-09",
+      wheelgap: "0.6.3",
+      packages: 5000,
+      summary: { "3.13 win-arm64": { wheel: 4000, source: 800, missing: 200 } },
+    },
+    {
+      date: "2026-11-10",
+      wheelgap: "0.6.3",
+      packages: 5000,
+      summary: { "3.13 win-arm64": { wheel: 4100, source: 700, missing: 200 } },
+    },
+  ];
+  const series = logic.chartSeries(history, "3.13 win-arm64");
+  assert.equal(series.length, 2);
+  assert.equal(series[0].date, "2026-11-09");
+  assert.equal(series[0].value, 80);
+  assert.equal(series[0].upgrade, "");
+  assert.equal(series[1].date, "2026-11-10");
+  assert.equal(series[1].value, 82);
+  assert.equal(series[1].upgrade, "");
+});
+
+test("chartSeries marks wheelgap upgrade points (#78)", () => {
+  const history = [
+    {
+      date: "2026-11-09",
+      wheelgap: "0.6.3",
+      packages: 1000,
+      summary: { "3.13 win-arm64": { wheel: 800, source: 200 } },
+    },
+    {
+      date: "2026-11-10",
+      wheelgap: "0.7.0",
+      packages: 1000,
+      summary: { "3.13 win-arm64": { wheel: 820, source: 180 } },
+    },
+    {
+      date: "2026-11-11",
+      wheelgap: "0.7.0",
+      packages: 1000,
+      summary: { "3.13 win-arm64": { wheel: 830, source: 170 } },
+    },
+  ];
+  const series = logic.chartSeries(history, "3.13 win-arm64");
+  assert.equal(series.length, 3);
+  assert.equal(series[0].upgrade, "");
+  assert.equal(series[1].upgrade, "0.7.0");
+  assert.equal(series[2].upgrade, "");
+});
+
+test("chartSeries includes Pyodide bundled builds in installable percentage (#78)", () => {
+  const history = [
+    {
+      date: "2026-11-09",
+      wheelgap: "0.7.0",
+      packages: 100,
+      summary: { "3.13 pyodide": { wheel: 70, bundled: 10, missing: 20 } },
+    },
+  ];
+  const series = logic.chartSeries(history, "3.13 pyodide");
+  assert.equal(series.length, 1);
+  assert.equal(series[0].wheel, 70);
+  assert.equal(series[0].bundled, 10);
+  assert.equal(series[0].value, 80);
+});
+
+test("chartSeries marks the first night Pyodide's own builds are counted (#78)", () => {
+  const night = (date, bundled) => ({
+    date, wheelgap: "0.9.0", packages: 100, summary: { "3.13 pyodide": { wheel: 70, bundled } },
+  });
+  const series = logic.chartSeries([night("2026-11-09", 0), night("2026-11-10", 2), night("2026-11-11", 2)], "3.13 pyodide");
+  assert.deepEqual(series.map((p) => p.bundledStart), [false, true, false]);
+  assert.deepEqual(series.map((p) => p.upgrade), ["", "", ""]);
+});
+
+test("chartSeries skips entries with a malformed count (#78)", () => {
+  const cell = { "3.13 win-arm64": { wheel: 50 } };
+  const history = [
+    { date: "2026-11-08", packages: "abc", summary: cell },
+    { date: "2026-11-09", packages: "100", summary: cell },
+    { date: "2026-11-10", packages: -5, summary: cell },
+    { date: "2026-11-11", packages: 100, summary: { "3.13 win-arm64": { wheel: -1 } } },
+    { date: "2026-11-12", packages: 100, summary: cell },
+  ];
+  const series = logic.chartSeries(history, "3.13 win-arm64");
+  assert.deepEqual(series.map((p) => p.date), ["2026-11-12"]);
+  assert.equal(series[0].value, 50);
+});
+
+test("chartSeries skips invalid entries safely (#78)", () => {
+  for (const bad of [null, undefined, 42, "str", [], {}]) {
+    assert.deepEqual(logic.chartSeries(bad, "3.13 win-arm64"), []);
+  }
+  const mixed = [
+    null,
+    { date: "2026-11-09" }, // no summary
+    { date: "2026-11-10", packages: 0, summary: { "3.13 win-arm64": { wheel: 10 } } }, // 0 packages
+    { date: "2026-11-11", packages: 100, summary: { "3.13 win-arm64": { wheel: 50 } } },
+  ];
+  const series = logic.chartSeries(mixed, "3.13 win-arm64");
+  assert.equal(series.length, 1);
+  assert.equal(series[0].date, "2026-11-11");
+  assert.equal(series[0].value, 50);
 });

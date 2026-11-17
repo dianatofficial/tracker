@@ -79,6 +79,14 @@ class UpdateHistoryTests(TempDir):
         dates = [h["date"] for h in json.loads(history.read_text(encoding="utf-8"))]
         self.assertEqual(dates, ["2026-11-08", "2026-11-10", "2026-11-11"])
 
+    def test_history_is_capped_at_max_days(self):
+        history = self.write("history.json", [
+            {"date": f"2026-11-0{i}", "summary": {}} for i in range(1, 6)
+        ])
+        update_history.update(self.write("coverage.json", scan()), history, max_days=3)
+        dates = [h["date"] for h in json.loads(history.read_text(encoding="utf-8"))]
+        self.assertEqual(dates, ["2026-11-04", "2026-11-05", "2026-11-10"])
+
 
 class CheckScanTests(unittest.TestCase):
     def setUp(self):

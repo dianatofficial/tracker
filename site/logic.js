@@ -64,6 +64,43 @@ function platformStats(s, prev, n, prevWheelgap, wheelgap) {
     ["wheel", "bundled", "source", "missing", "unknown"].map((k) => [k, share(k)])) };
 }
 
+// Per-night coverage points for one target from history.json, which update_history.py keeps sorted and one entry per
+// date. Each point has: date, value (the percentage with a wheel or a Pyodide build, like platformStats), wheel,
+// bundled, source, missing, packages, wheelgap version, upgrade (the new version when it changed since the previous
+// point, else "") and bundledStart (true on the first night Pyodide's own builds were counted). Both marks are nights
+// that aren't like for like with the one before (#58).
+function chartSeries(history, label) {
+  if (!Array.isArray(history)) return [];
+  const points = [];
+  let previousVersion = "";
+  for (const h of history) {
+    if (!h || typeof h !== "object") continue;
+    const cell = h.summary?.[label];
+    if (!cell || !isCount(cell.wheel) || !isCount(h.packages) || h.packages === 0) continue;
+    const version = isText(h.wheelgap) ? h.wheelgap : "";
+    const upgrade = previousVersion && version && version !== previousVersion ? version : "";
+    previousVersion = version || previousVersion;
+
+    const bundled = isCount(cell.bundled) ? cell.bundled : 0;
+    const bundledStart = points.length > 0 && bundled > 0 && points[points.length - 1].bundled === 0;
+    const wheels = cell.wheel + bundled;
+    const value = (100 * wheels) / h.packages;
+    points.push({
+      date: h.date,
+      value,
+      wheel: cell.wheel,
+      bundled,
+      source: isCount(cell.source) ? cell.source : 0,
+      missing: isCount(cell.missing) ? cell.missing : 0,
+      packages: h.packages,
+      wheelgap: version,
+      upgrade,
+      bundledStart,
+    });
+  }
+  return points;
+}
+
 // data/pyodide.json -> {python: {pyodide, lock}}, keeping only well-formed entries; anything else is {}.
 function pyodideReleases(raw) {
   const out = {};
@@ -249,7 +286,7 @@ function labVerdict(r) {
 
 if (typeof module !== "undefined" && module.exports) {
   module.exports = {
-    BUNDLED_NOTE, isPackageName, isPackageSpec, splitSpec, installable, gapsAt, platformStats, pyodideReleases, bundledInfo, bundledDetail, lookupInstallData, gapWheelTargets, blockersLabel, blockersForTarget, whyCommand, pyodideFooter,
+    BUNDLED_NOTE, isPackageName, isPackageSpec, splitSpec, installable, gapsAt, platformStats, chartSeries, pyodideReleases, bundledInfo, bundledDetail, lookupInstallData, gapWheelTargets, blockersLabel, blockersForTarget, whyCommand, pyodideFooter,
     labVerdict,
   };
 }
