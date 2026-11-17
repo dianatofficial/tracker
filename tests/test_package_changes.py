@@ -1,10 +1,7 @@
 """Tests for recent wheel changes on package pages (scripts/build_pages.py, #115)."""
 
-import html
 import json
-from pathlib import Path
 
-import pytest
 
 from scripts import build_pages, update_changes
 
@@ -36,31 +33,59 @@ def make_scan(packages):
     }
 
 
+def item(name, target, frm, to, version="1.0"):
+    return {"name": name, "version": version, "target": target, "from": frm, "to": to}
+
+
+def day(date, gained=(), lost=()):
+    """One day of changes.json, as update_changes.py writes it."""
+    return {"date": date, "gained": list(gained), "lost": list(lost)}
+
+
 def test_format_target():
     assert build_pages.format_target("3.14 win-arm64") == "Windows ARM64, Python 3.14"
     assert build_pages.format_target("3.14 linux-x86_64") == "Linux x86_64, Python 3.14"
     assert build_pages.format_target("3.13 musl-x86_64") == "Alpine x86_64, Python 3.13"
     assert build_pages.format_target("3.13 pyodide") == "Pyodide (browser), Python 3.13"
-    assert build_pages.format_target("custom-platform") == "custom-platform"
+    assert build_pages.format_target("3.14t win-arm64") == "Windows ARM64, Python 3.14t"
 
 
-def test_changes_render_in_order_with_target_formatting():
+def test_changes_render_newest_first_with_target_formatting():
     pkg = make_package("demo")
     scan = make_scan([pkg])
-    changes = [
-        {"date": "2026-11-12", "target": "3.13 musl-x86_64", "action": "lost"},
-        {"date": "2026-11-16", "target": "3.14 win-arm64", "action": "gained"},
-    ]
+    changes = build_pages.changes_by_package([
+        day("2026-11-12", lost=[item("demo", "3.13 musl-x86_64", "wheel", "source")]),
+        day("2026-11-16", gained=[item("demo", "3.14 win-arm64", "source", "wheel")]),
+    ])["demo"]
     out = build_pages.page(pkg, scan, "3.14", changes=changes)
 
     assert '<section aria-labelledby="recent-changes">' in out
     assert '<h2 id="recent-changes">Recent changes</h2>' in out
-    assert f"last {update_changes.KEEP_DAYS} days" in out
-
-    # Newest first: 2026-11-16 must appear before 2026-11-12
+    assert f"the log keeps {update_changes.KEEP_DAYS} days" in out
     pos_16 = out.index("2026-11-16: gained a wheel for Windows ARM64, Python 3.14")
     pos_12 = out.index("2026-11-12: lost a wheel for Alpine x86_64, Python 3.13")
     assert pos_16 < pos_12
+
+
+def test_same_day_losses_come_before_gains():
+    changes = build_pages.changes_by_package([
+        day(
+            "2026-11-16",
+            gained=[item("demo", "3.14 win-arm64", "source", "wheel")],
+            lost=[item("demo", "3.14 linux-x86_64", "wheel", "source")],
+        ),
+    ])["demo"]
+    assert [(c["gained"], c["target"]) for c in changes] == [
+        (False, "3.14 linux-x86_64"),
+        (True, "3.14 win-arm64"),
+    ]
+
+
+def test_names_are_canonicalised():
+    by_pkg = build_pages.changes_by_package(
+        [day("2026-11-16", gained=[item("Pkg_One", "3.14 win-arm64", "source", "wheel")])]
+    )
+    assert list(by_pkg) == ["pkg-one"]
 
 
 def test_empty_log_gives_no_section():
@@ -79,17 +104,17 @@ def test_empty_log_gives_no_section():
 def test_capped_at_ten_entries():
     pkg = make_package("demo")
     scan = make_scan([pkg])
-    changes = [
-        {"date": f"2026-11-{day:02d}", "target": "3.14 win-arm64", "action": "gained"}
-        for day in range(1, 16)
-    ]
+    changes = build_pages.changes_by_package([
+        day(f"2026-11-{n:02d}", gained=[item("demo", "3.14 win-arm64", "source", "wheel")])
+        for n in range(1, 16)
+    ])["demo"]
     out = build_pages.page(pkg, scan, "3.14", changes=changes)
 
     assert out.count("gained a wheel for Windows ARM64, Python 3.14") == 10
-    # Day 15 (newest) down to day 06 should be present (10 items), day 05 (oldest) should be dropped
     assert "2026-11-15:" in out
     assert "2026-11-06:" in out
     assert "2026-11-05:" not in out
+    assert "<li>and 5 more</li>" in out
 
 
 def test_package_isolation():
@@ -123,9 +148,7 @@ def test_package_isolation():
 def test_changes_escapes_html():
     pkg = make_package("demo")
     scan = make_scan([pkg])
-    changes = [
-        {"date": "2026-11-16<tag>", "target": "3.14 <custom>", "action": "gained&fun"},
-    ]
+    changes = [{"date": "2026-11-16<tag>", "gained": True, "target": "3.14 <custom>"}]
     out = build_pages.page(pkg, scan, "3.14", changes=changes)
 
     assert "<tag>" not in out

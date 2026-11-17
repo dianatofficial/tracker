@@ -420,77 +420,48 @@ def lab_html(builds: list[dict]) -> str:
     )
 
 
-def format_target(target: str) -> str:
-    """Format a target like '3.14 win-arm64' into 'Windows ARM64, Python 3.14'."""
-    parts = target.split(" ", 1)
-    if len(parts) == 2:
-        if parts[0] in PLATFORM_NAMES:
-            plat_name = PLATFORM_NAMES[parts[0]]
-            return f"{plat_name}, Python {parts[1]}"
-        plat_name = PLATFORM_NAMES.get(parts[1], parts[1])
-        return f"{plat_name}, Python {parts[0]}"
-    return PLATFORM_NAMES.get(target, target)
+def format_target(label: str) -> str:
+    """'3.14 win-arm64' -> 'Windows ARM64, Python 3.14' (a coverage.json target label)."""
+    python, platform = label.split(" ", 1)
+    return f"{PLATFORM_NAMES.get(platform, platform)}, Python {python}"
 
 
 def changes_html(changes: list[dict] | None) -> str:
-    """The Recent changes section: up to 10 newest wheel gains and losses from changes.json."""
+    """The Recent changes section: the package's 10 newest entries from changes_by_package,
+    or nothing when it has none."""
     if not changes:
         return ""
     e = html.escape
-    ordered = sorted(changes, key=lambda c: str(c.get("date", "")), reverse=True)
-    items = []
-    for item in ordered[:10]:
-        date = str(item.get("date", "")).split("T")[0]
-        act = item.get("action", "")
-        if act == "gained" or act == "gained a wheel" or item.get("to") == "wheel":
-            action = "gained a wheel"
-        else:
-            action = "lost a wheel"
-        target = format_target(item.get("target", ""))
-        items.append(f"        <li>{e(date)}: {e(action)} for {e(target)}</li>\n")
+    items = [
+        f"        <li>{e(c['date'])}: {'gained' if c['gained'] else 'lost'} a wheel"
+        f" for {e(format_target(c['target']))}</li>\n"
+        for c in changes[:10]
+    ]
+    if len(changes) > 10:
+        items.append(f"        <li>and {len(changes) - 10} more</li>\n")
     return (
         '    <section aria-labelledby="recent-changes">\n'
         '      <h2 id="recent-changes">Recent changes</h2>\n'
-        f'      <p class="sub">Wheel changes recorded in nightly scans over the last {update_changes.KEEP_DAYS} days.</p>\n'
-        '      <ul>\n'
-        f'{"".join(items)}'
-        '      </ul>\n'
-        '    </section>\n'
+        "      <p class=\"sub\">Wheels gained and lost in the nightly scans, newest first"
+        f" (the log keeps {update_changes.KEEP_DAYS} days).</p>\n"
+        "      <ul>\n"
+        f"{''.join(items)}"
+        "      </ul>\n"
+        "    </section>\n"
     )
 
 
 def changes_by_package(changes: list[dict]) -> dict[str, list[dict]]:
-    """Index wheel gains and losses from changes.json by canonical package name, newest first."""
+    """Each package's wheel gains and losses from changes.json (the list of days
+    update_changes.py writes), keyed by canonical name: newest day first, and within a
+    day losses before gains, as on the home page."""
     by_pkg: dict[str, list[dict]] = {}
-    for entry in sorted(changes, key=lambda c: str(c.get("date", "")), reverse=True):
-        date = str(entry.get("date", ""))
-        if "gained" in entry or "lost" in entry:
-            for item in entry.get("gained", []):
-                name = canonical(item.get("name", ""))
-                if name:
-                    by_pkg.setdefault(name, []).append({
-                        "date": date,
-                        "action": "gained",
-                        "target": item.get("target", ""),
-                        "version": item.get("version"),
-                        "from": item.get("from"),
-                        "to": item.get("to", "wheel"),
-                    })
-            for item in entry.get("lost", []):
-                name = canonical(item.get("name", ""))
-                if name:
-                    by_pkg.setdefault(name, []).append({
-                        "date": date,
-                        "action": "lost",
-                        "target": item.get("target", ""),
-                        "version": item.get("version"),
-                        "from": item.get("from", "wheel"),
-                        "to": item.get("to"),
-                    })
-        elif "name" in entry:
-            name = canonical(entry.get("name", ""))
-            if name:
-                by_pkg.setdefault(name, []).append(dict(entry))
+    for day in sorted(changes, key=lambda d: d["date"], reverse=True):
+        for kind in ("lost", "gained"):
+            for item in day[kind]:
+                by_pkg.setdefault(canonical(item["name"]), []).append(
+                    {"date": day["date"], "gained": kind == "gained", "target": item["target"]}
+                )
     return by_pkg
 
 
@@ -511,7 +482,7 @@ def page(
     found is pyodide_locks.releases(scan): the Pyodide release behind each Python's bundled cells.
     campaigns pairs each membership status with its loaded campaign. tree_badge says whether
     build_badges writes badge/<name>-tree.json, so the page shows its snippet too.
-    builds holds the package's build lab results. changes holds recent wheel gains and losses from changes.json."""
+    builds holds the package's build lab results; changes is its entry from changes_by_package."""
     found = found or {}
     bundled = pyodide_locks.bundled(package, scan["targets"], found)
     way_out = package.get("way_out", {})
