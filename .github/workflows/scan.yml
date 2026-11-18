@@ -249,7 +249,8 @@ jobs:
           cp -r site/. _site/
           cp data/*.json _site/data/
           python3 scripts/build_lookup.py data/coverage.json _site/data/packages
-          python3 scripts/build_csv.py data/coverage.json _site/data/coverage.csv
+          python3 scripts/build_csv.py data/coverage.json _site/data/coverage.csv \
+            --history data/history.json _site/data/history.csv
           python3 scripts/build_most_wanted.py data/coverage.json _site/data/most-wanted.json
           python3 scripts/build_badges.py data/coverage.json _site/badge
           # The same verified wheel index is used for package-page hints and the legacy index.
