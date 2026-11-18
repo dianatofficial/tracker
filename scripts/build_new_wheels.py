@@ -176,6 +176,7 @@ def page(items: list[dict], scanned: set[str]) -> str:
   <meta http-equiv="Content-Security-Policy" content="{CSP}">
   <title>New wheels · wheelgap tracker</title>
   <meta name="description" content="{e(summary)}">
+{build_campaigns.og_tags("New wheels · wheelgap tracker", summary, BASE_URL + "new/")}
   <link rel="canonical" href="{e(BASE_URL)}new/">
   <link rel="alternate" type="application/atom+xml" title="New wheels" href="../new.xml">
   <link rel="stylesheet" href="../style.css">
@@ -203,7 +204,8 @@ def feed(items: list[dict], updated: str, scanned: set[str], platform: str | Non
     entries = []
     for r in items[:FEED_LIMIT]:
         targets = ", ".join(r["targets"])
-        ident = f"{BASE_URL}new/#{build_campaigns.canonical(r['name'])}-{r['version']}"
+        # The night is part of the id: a release can gain more targets on a later night, and each is news.
+        ident = f"{BASE_URL}new/#{r['date']}-{build_campaigns.canonical(r['name'])}-{r['version']}"
         if platform:
             ident = f"{ident}-{platform}"
         summary_was = f" (was {x(r['was'])})" if r.get("was") else ""
@@ -250,7 +252,7 @@ def build(changes_path: Path, coverage_path: Path, site: Path) -> int:
     (site / "new").mkdir(parents=True, exist_ok=True)
     (site / "new" / "index.html").write_text(page(items, scanned), encoding="utf-8")
 
-    today = datetime.datetime.now(datetime.timezone.utc).date().isoformat()
+    today = datetime.datetime.now(datetime.UTC).date().isoformat()
     updated = items[0]["date"] if items else today
     (site / "new.xml").write_text(feed(items, updated, scanned), encoding="utf-8")
 

@@ -182,6 +182,33 @@ def test_page_without_changes_or_file(tmp_path):
         ET.parse(site / "new" / f"{platform}.xml")
 
 
+def test_feed_ids_stay_unique_when_a_release_gains_targets_on_two_nights(tmp_path):
+    changes = [
+        {"date": "2026-11-16", "lost": [], "gained": [
+            {"name": "pkg", "version": "1.0", "target": "3.14 win-arm64", "from": "source", "to": "wheel"},
+        ]},
+        {"date": "2026-11-17", "lost": [], "gained": [
+            {"name": "pkg", "version": "1.0", "target": "3.14t win-arm64", "from": "source", "to": "wheel"},
+        ]},
+    ]
+    changes_path = tmp_path / "changes.json"
+    changes_path.write_text(json.dumps(changes), encoding="utf-8")
+    site = tmp_path / "site"
+    build_new_wheels.build(changes_path, write_coverage(tmp_path, ["pkg"]), site)
+    ns = {"a": "http://www.w3.org/2005/Atom"}
+    for path in (site / "new.xml", site / "new" / "win-arm64.xml"):
+        ids = [e.findtext("a:id", namespaces=ns) for e in ET.parse(path).getroot().findall("a:entry", ns)]
+        assert len(ids) == 2 and len(set(ids)) == 2, path
+        assert ids[0].startswith(f"{build_new_wheels.BASE_URL}new/#2026-11-17-pkg-1.0")
+
+
+def test_new_wheels_social_card():
+    page = build_new_wheels.page([], set())
+    assert '<meta property="og:title" content="New wheels · wheelgap tracker">' in page
+    assert f'<meta property="og:url" content="{build_new_wheels.BASE_URL}new/">' in page
+    assert '<meta name="twitter:card" content="summary_large_image">' in page
+
+
 def test_home_page_footer_links_the_new_wheels_page():
     home = (Path(__file__).resolve().parents[1] / "site" / "index.html").read_text(encoding="utf-8")
     assert '<a href="new/">New wheels</a>' in home.split("<footer", 1)[1]
