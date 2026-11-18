@@ -617,6 +617,23 @@ def todo_lists(
     return todo, set_aside
 
 
+def og_tags(title: str, description: str, url: str) -> str:
+    """Escaped social preview metadata for a page, using the site's shared image."""
+    properties = {
+        "type": "website",
+        "title": title,
+        "description": description,
+        "url": url,
+        "image": BASE_URL + "og.png",
+        "image:width": "1280",
+        "image:height": "640",
+        "image:alt": "wheelgap tracker: wheel coverage for the 5,000 most downloaded PyPI packages, across 42 platforms and Pythons.",
+    }
+    lines = [f'  <meta property="og:{key}" content="{html.escape(value)}">' for key, value in properties.items()]
+    lines.append('  <meta name="twitter:card" content="summary_large_image">')
+    return "\n".join(lines)
+
+
 def page(
     campaign: dict,
     scan: dict,

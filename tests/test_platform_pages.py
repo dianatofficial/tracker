@@ -1,6 +1,8 @@
 """Offline regression tests for crawlable platform pages (#111)."""
 
+import html
 import json
+import re
 import tempfile
 import unittest
 from pathlib import Path
@@ -122,6 +124,41 @@ class PlatformPageTests(unittest.TestCase):
         self.assertNotIn("<b>&", win)
         self.assertNotIn("bad<script>", win)
         self.assertNotIn("<script", win)
+
+    def test_social_cards_on_platform_index_and_details(self):
+        self.run_build()
+        paths = ["", "win-arm64/", "linux-x86_64/", "linux-aarch64/", "pyodide/"]
+        for path in paths:
+            with self.subTest(path=path):
+                page = (self.site / "platforms" / path / "index.html").read_text(encoding="utf-8")
+                title = re.search(r"<title>(.*?)</title>", page).group(1)
+                description = re.search(r'<meta name="description" content="([^"]*)">', page).group(1)
+                canonical = f"https://wheelgap.github.io/tracker/platforms/{path}"
+                for name, value in {
+                    "type": "website", "title": title, "description": description,
+                    "url": canonical, "image": "https://wheelgap.github.io/tracker/og.png",
+                    "image:width": "1280", "image:height": "640",
+                }.items():
+                    self.assertIn(f'<meta property="og:{name}" content="{value}">', page)
+                self.assertIn(f'<link rel="canonical" href="{canonical}">', page)
+                self.assertIn('<meta property="og:image:alt" content="wheelgap tracker:', page)
+                self.assertIn('<meta name="twitter:card" content="summary_large_image">', page)
+
+    def test_social_cards_escape_platform_names_and_urls(self):
+        friendly = 'ARM "fast" <test> & small'
+        base = 'https://example.test/"<test>&/'
+        with mock.patch.dict(build_pages.PLATFORM_NAMES, {"win-arm64": friendly}), \
+                mock.patch.object(build_platform_pages, "BASE", base):
+            self.run_build()
+        page = self.read("win-arm64")
+        title = f"Python 3.15 packages without {friendly} wheels"
+        description = f"0 of the top 3 PyPI packages (0.0%) have a prebuilt wheel on {friendly} for Python 3.15."
+        self.assertIn(f'<meta property="og:title" content="{html.escape(title)}">', page)
+        self.assertIn(f'<meta property="og:description" content="{html.escape(description)}">', page)
+        url = html.escape(base + "platforms/win-arm64/")
+        self.assertIn(f'<meta property="og:url" content="{url}">', page)
+        self.assertIn(f'<link rel="canonical" href="{url}">', page)
+        self.assertNotIn('<test>', page)
 
     def test_python_is_per_platform(self):
         # The newest Python (3.15) has no Pyodide target: the Pyodide page uses 3.14 and isn't empty.

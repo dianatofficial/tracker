@@ -1411,6 +1411,23 @@ button, input, select {
 .packages-table thead th.sortable:hover {
   color: var(--text);
 }
+.packages-table thead th.sortable button {
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: inherit;
+  text-transform: inherit;
+  letter-spacing: inherit;
+  cursor: pointer;
+}
+.packages-table thead th.sortable button:focus-visible,
+.pill-filter:focus-visible {
+  outline: 2px solid var(--navy);
+  outline-offset: 3px;
+}
 .sort-icon {
   margin-left: 2px;
   opacity: 0.4;
@@ -2253,3 +2270,14 @@ a.blocker-ex:hover {
 .spark-note:empty { display: none; }
 .spark-note { margin-top: 10px; }
 .footer-credit { margin: 14px 0 0; font-size: 0.8rem; color: var(--text-muted); }
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *, *::before, *::after {
+    transition: none !important;
+    animation: none !important;
+  }
+}

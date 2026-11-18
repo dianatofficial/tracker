@@ -79,6 +79,7 @@ def page(items: list[dict], waiting: int, scanned: set[str]) -> str:
   <meta http-equiv="Content-Security-Policy" content="{CSP}">
   <title>Dropped platforms · wheelgap tracker</title>
   <meta name="description" content="{e(summary)}">
+{build_campaigns.og_tags("Dropped platforms · wheelgap tracker", summary, BASE_URL + "drops/")}
   <link rel="canonical" href="{e(BASE_URL)}drops/">
   <link rel="alternate" type="application/atom+xml" title="Dropped platforms" href="../drops.xml">
   <link rel="stylesheet" href="../style.css">

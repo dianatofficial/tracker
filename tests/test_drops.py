@@ -1,5 +1,6 @@
 """Dropped platforms (#75): the nightly comparison, the waiting list, and the page and feed."""
 
+import html
 import json
 import xml.etree.ElementTree as ET
 
@@ -343,6 +344,31 @@ def test_page_without_drops_or_file(tmp_path):
     assert build_drops.build(tmp_path / "missing.json", write_coverage(tmp_path, []), site) == 0
     assert "No drops recorded yet." in (site / "drops" / "index.html").read_text(encoding="utf-8")
     ET.parse(site / "drops.xml")
+
+
+def test_drops_social_card_uses_canonical_url_and_escaped_description():
+    page = build_drops.page([], 0, set())
+    url = "https://wheelgap.github.io/tracker/drops/"
+    description = "Top PyPI packages whose latest release dropped a platform's wheel the previous release had."
+    for name, value in {
+        "type": "website", "title": "Dropped platforms · wheelgap tracker",
+        "description": description, "url": url,
+        "image": "https://wheelgap.github.io/tracker/og.png", "image:width": "1280", "image:height": "640",
+    }.items():
+        assert f'<meta property="og:{name}" content="{html.escape(value)}">' in page
+    assert f'<link rel="canonical" href="{url}">' in page
+    assert '<meta property="og:image:alt" content="wheelgap tracker:' in page
+    assert '<meta name="twitter:card" content="summary_large_image">' in page
+
+
+def test_drops_social_card_escapes_url(monkeypatch):
+    base = 'https://example.test/"<test>&/'
+    monkeypatch.setattr(build_drops, "BASE_URL", base)
+    page = build_drops.page([], 0, set())
+    url = html.escape(base + "drops/")
+    assert f'<meta property="og:url" content="{url}">' in page
+    assert f'<link rel="canonical" href="{url}">' in page
+    assert "<test>" not in page
 
 
 def test_home_page_footer_links_the_drops_page():

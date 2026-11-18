@@ -210,7 +210,7 @@ function element() {
   };
 }
 
-async function loadPage(hash, packageData = null, gapWheelIndex = null) {
+async function loadPage(hash, packageData = null, gapWheelIndex = null, setup = () => {}) {
   const elements = new Map();
   const location = { hash };
   const get = (id) => {
@@ -244,6 +244,7 @@ async function loadPage(hash, packageData = null, gapWheelIndex = null) {
       return { ok: true, json: async () => json };
     },
   };
+  setup(context, get);
   vm.createContext(context);
   const code = ["logic.js", "app.js"].map((f) => fs.readFileSync(path.join(ROOT, "site", f), "utf8")).join("\n;\n");
   vm.runInContext(code, context, { filename: "site/logic.js + site/app.js" });
@@ -258,6 +259,126 @@ async function loadPage(hash, packageData = null, gapWheelIndex = null) {
 
 const coverage = () => JSON.parse(fs.readFileSync(path.join(ROOT, "data", "coverage.json"), "utf8"));
 const cardClick = (platform) => ({ target: { closest: (sel) => (sel === ".leaderboard-card" ? { dataset: { pl: platform } } : null) } });
+
+async function loadTablePage() {
+  let group, pills, head, headers;
+  const page = await loadPage("", null, null, (context, get) => {
+    const attributes = (node) => {
+      const attrs = new Map();
+      node.setAttribute = (name, value) => attrs.set(name, String(value));
+      node.getAttribute = (name) => attrs.get(name) ?? null;
+      node.removeAttribute = (name) => attrs.delete(name);
+      node.focus = () => { context.document.activeElement = node; };
+      return node;
+    };
+    group = element();
+    pills = ["all", "source", "missing"].map((filter, i) => {
+      const pill = attributes(get(`filter-pill-${filter}`));
+      pill.dataset.filter = filter;
+      pill.setAttribute("aria-checked", i === 0 ? "true" : "false");
+      pill.tabIndex = i === 0 ? 0 : -1;
+      pill.closest = (selector) => selector === ".pill-filter" ? pill : null;
+      return pill;
+    });
+    group.querySelectorAll = () => pills;
+    head = element();
+    headers = ["rank", "name", "status", "downloads"].map((sort) => {
+      const header = attributes(element());
+      header.dataset.sort = sort;
+      header.icon = element();
+      header.querySelector = () => header.icon;
+      return header;
+    });
+    context.document.querySelector = (selector) => selector === ".status-filter-pills" ? group
+      : selector === ".packages-table thead" ? head : null;
+    context.document.querySelectorAll = (selector) => selector === ".pill-filter" ? pills
+      : selector === ".packages-table thead th" ? headers : [];
+  });
+  return { ...page, group, pills, head, headers };
+}
+
+test("sortable headings are native buttons and status pills have radio semantics (#146)", () => {
+  const html = fs.readFileSync(path.join(SITE, "index.html"), "utf8");
+  const headings = [...html.matchAll(/<th\b([^>]*\bdata-sort="[^"]+"[^>]*)>(.*?)<\/th>/gs)];
+  assert.equal(headings.length, 4);
+  for (const [, attrs, content] of headings) {
+    assert.match(attrs, /scope="col"/);
+    assert.match(content, /^<button type="button">.+<span class="sort-icon" aria-hidden="true">.+<\/span><\/button>$/);
+    assert.doesNotMatch(content, /aria-sort/);
+  }
+  const pills = [...html.matchAll(/<button\b([^>]*\bclass="pill-filter[^>]+)>/g)];
+  assert.equal(pills.length, 3);
+  for (const [, attrs] of pills) {
+    assert.match(attrs, /role="radio"/);
+    assert.match(attrs, /aria-checked="true"/.test(attrs) ? /tabindex="0"/ : /tabindex="-1"/);
+  }
+});
+
+test("Downloads sorting announces the actual order on both clicks (#146)", async () => {
+  const page = await loadTablePage();
+  const header = page.headers.find((h) => h.dataset.sort === "downloads");
+  const click = { target: { closest: (selector) => selector === "th.sortable" ? header : null } };
+  for (const descending of [true, false]) {
+    page.head.handlers.click(click);
+    const rows = vm.runInContext("currentGapsList()", page.context);
+    assert.ok(rows.length > 1);
+    const counts = Array.from(rows, (row) => row.downloads ?? 0);
+    assert.deepEqual(counts, [...counts].sort((a, b) => descending ? b - a : a - b));
+    assert.equal(header.getAttribute("aria-sort"), descending ? "descending" : "ascending");
+    assert.equal(header.icon.textContent, descending ? "▼" : "▲");
+    const html = page.get("gaps").innerHTML;
+    const first = html.indexOf(`data-pkg="${rows[0].name}"`);
+    const second = html.indexOf(`data-pkg="${rows[1].name}"`);
+    assert.ok(first >= 0 && second > first);
+  }
+});
+
+test("status radios wrap with arrow keys and update focus, checked state and filtering (#146)", async () => {
+  const page = await loadTablePage();
+  const check = (selected) => {
+    page.pills.forEach((pill, index) => {
+      assert.equal(pill.getAttribute("aria-checked"), String(index === selected));
+      assert.equal(pill.tabIndex, index === selected ? 0 : -1);
+    });
+    assert.equal(vm.runInContext("state.filterStatus", page.context), page.pills[selected].dataset.filter);
+    assert.equal(vm.runInContext("state.currentPage", page.context), 1);
+  };
+  for (const [from, key, to] of [[0, "ArrowLeft", 2], [2, "ArrowRight", 0], [0, "ArrowDown", 1], [1, "ArrowUp", 0]]) {
+    let prevented = false;
+    vm.runInContext("state.currentPage = 3", page.context);
+    page.group.handlers.keydown({ target: page.pills[from], key, preventDefault() { prevented = true; } });
+    assert.ok(prevented);
+    assert.equal(page.context.document.activeElement, page.pills[to]);
+    check(to);
+  }
+  page.group.handlers.click({ target: page.pills[1] });
+  check(1);
+  const statuses = vm.runInContext("currentGapsList().map(p => p.results[targetIndex(state.python, state.platform)])", page.context);
+  assert.ok(statuses.length > 0 && statuses.every((s) => s === "source"));
+  page.group.handlers.keydown({ target: page.pills[1], key: "Tab", preventDefault() { assert.fail("Tab must leave the group"); } });
+  check(1);
+});
+
+
+test("platform cards and both pagers respect the current reduced-motion preference (#147)", async () => {
+  const page = await loadPage("");
+  const scrolls = [];
+  page.get("gaps-title").scrollIntoView = (options) => scrolls.push({ ...options });
+
+  for (const reduced of [false, true, false, undefined]) {
+    page.context.window.matchMedia = reduced === undefined ? undefined
+      : (query) => ({ matches: query === "(prefers-reduced-motion: reduce)" && reduced });
+    const behavior = reduced ? "auto" : "smooth";
+    page.get("platform-leaderboard").handlers.click(cardClick("win-arm64"));
+    for (const [position, number] of [["top", "2"], ["bottom", "3"]]) {
+      const button = { disabled: false, dataset: { page: number } };
+      page.get(`pagination-buttons-${position}`).handlers.click({
+        target: { closest: (selector) => selector === "button.page-btn" ? button : null },
+      });
+    }
+    assert.deepEqual(scrolls.splice(0), Array.from({ length: 3 }, () => ({ behavior, block: "start" })));
+  }
+});
 
 test("clicking a platform card updates the lookup's \"Why?\" command (#56)", async () => {
   const data = coverage();

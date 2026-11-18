@@ -589,8 +589,13 @@ function renderLeaderboard() {
   container.innerHTML = cardsHtml;
 }
 
+function scrollBehavior() {
+  return window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches
+    ? "auto" : "smooth";
+}
+
 function scrollToGaps() {
-  $("gaps-title")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  $("gaps-title")?.scrollIntoView({ behavior: scrollBehavior(), block: "start" });
 }
 
 // ============================================================================
@@ -620,7 +625,7 @@ function currentGapsList() {
     } else if (state.sortCol === "name") {
       res = a.name.localeCompare(b.name);
     } else if (state.sortCol === "downloads") {
-      res = (b.downloads ?? 0) - (a.downloads ?? 0);
+      res = (a.downloads ?? 0) - (b.downloads ?? 0);
     } else if (state.sortCol === "status") {
       const sa = a.results[i] ?? "";
       const sb = b.results[i] ?? "";
@@ -1344,18 +1349,32 @@ async function main() {
   });
 
   // Table filters
-  document.querySelector(".status-filter-pills")?.addEventListener("click", (e) => {
-    const btn = e.target.closest(".pill-filter");
-    if (!btn) return;
+  const statusFilters = document.querySelector(".status-filter-pills");
+  const selectStatus = (btn) => {
     document.querySelectorAll(".pill-filter").forEach((b) => {
-      b.classList.remove("active");
-      b.setAttribute("aria-checked", "false");
+      const selected = b === btn;
+      b.classList.toggle("active", selected);
+      b.setAttribute("aria-checked", String(selected));
+      b.tabIndex = selected ? 0 : -1;
     });
-    btn.classList.add("active");
-    btn.setAttribute("aria-checked", "true");
+    btn.focus();
     state.filterStatus = btn.dataset.filter;
     state.currentPage = 1;
     renderGaps();
+  };
+  statusFilters?.addEventListener("click", (e) => {
+    const btn = e.target.closest(".pill-filter");
+    if (btn) selectStatus(btn);
+  });
+  statusFilters?.addEventListener("keydown", (e) => {
+    if (e.altKey || e.ctrlKey || e.metaKey) return; // Alt+Left still goes back, as everywhere else
+    const step = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 }[e.key];
+    if (!step) return;
+    const buttons = Array.from(statusFilters.querySelectorAll(".pill-filter"));
+    const index = buttons.indexOf(e.target.closest(".pill-filter"));
+    if (index < 0) return;
+    e.preventDefault();
+    selectStatus(buttons[(index + step + buttons.length) % buttons.length]);
   });
 
   $("gaps-search")?.addEventListener("input", (e) => {
@@ -1373,7 +1392,7 @@ async function main() {
       state.sortDir = state.sortDir === "asc" ? "desc" : "asc";
     } else {
       state.sortCol = col;
-      state.sortDir = "asc";
+      state.sortDir = col === "downloads" ? "desc" : "asc";
     }
     document.querySelectorAll(".packages-table thead th").forEach((h) => {
       h.removeAttribute("aria-sort");
@@ -1395,7 +1414,7 @@ async function main() {
     if (!Number.isFinite(p) || p === state.currentPage) return;
     state.currentPage = p;
     renderGaps();
-    $("gaps-title").scrollIntoView({ behavior: "smooth", block: "start" });
+    $("gaps-title").scrollIntoView({ behavior: scrollBehavior(), block: "start" });
   };
   $("pagination-buttons-top")?.addEventListener("click", handlePageClick);
   $("pagination-buttons-bottom")?.addEventListener("click", handlePageClick);

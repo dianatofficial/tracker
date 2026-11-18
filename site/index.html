@@ -262,9 +262,9 @@
             <!-- Table Filter Toolbar -->
             <div class="filter-toolbar">
               <div class="status-filter-pills" role="radiogroup" aria-label="Filter by gap status">
-                <button type="button" class="pill-filter active" data-filter="all" aria-checked="true" id="filter-pill-all">All Gaps</button>
-                <button type="button" class="pill-filter pill-source" data-filter="source" aria-checked="false" id="filter-pill-source">from source</button>
-                <button type="button" class="pill-filter pill-missing" data-filter="missing" aria-checked="false" id="filter-pill-missing">cannot install</button>
+                <button type="button" class="pill-filter active" data-filter="all" role="radio" aria-checked="true" tabindex="0" id="filter-pill-all">All Gaps</button>
+                <button type="button" class="pill-filter pill-source" data-filter="source" role="radio" aria-checked="false" tabindex="-1" id="filter-pill-source">from source</button>
+                <button type="button" class="pill-filter pill-missing" data-filter="missing" role="radio" aria-checked="false" tabindex="-1" id="filter-pill-missing">cannot install</button>
               </div>
               <div class="table-search-box">
                 <input type="search" id="gaps-search" placeholder="Filter gap packages by name…" aria-label="Filter gap packages by name" autocomplete="off" spellcheck="false">
@@ -292,10 +292,10 @@
             <table class="packages-table" id="packages-table">
               <thead>
                 <tr>
-                  <th scope="col" class="th-rank sortable" data-sort="rank" aria-sort="ascending"># <span class="sort-icon">▲</span></th>
-                  <th scope="col" class="th-name sortable" data-sort="name">Package <span class="sort-icon">⇅</span></th>
-                  <th scope="col" class="th-status sortable" data-sort="status">Status <span class="sort-icon">⇅</span></th>
-                  <th scope="col" class="th-dl sortable" data-sort="downloads" style="text-align:right">Downloads (30d) <span class="sort-icon">⇅</span></th>
+                  <th scope="col" class="th-rank sortable" data-sort="rank" aria-sort="ascending"><button type="button"># <span class="sort-icon" aria-hidden="true">▲</span></button></th>
+                  <th scope="col" class="th-name sortable" data-sort="name"><button type="button">Package <span class="sort-icon" aria-hidden="true">⇅</span></button></th>
+                  <th scope="col" class="th-status sortable" data-sort="status"><button type="button">Status <span class="sort-icon" aria-hidden="true">⇅</span></button></th>
+                  <th scope="col" class="th-dl sortable" data-sort="downloads" style="text-align:right"><button type="button">Downloads (30d) <span class="sort-icon" aria-hidden="true">⇅</span></button></th>
                   <th scope="col" class="th-actions" style="text-align:right">Quick Links</th>
                 </tr>
               </thead>
