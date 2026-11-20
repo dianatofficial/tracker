@@ -3,6 +3,20 @@
  "wheelgap": "0.9.0",
  "drops": [
   {
+   "date": "2026-11-20",
+   "name": "databricks",
+   "from": "0.2",
+   "version": "1.27.0",
+   "target": "3.13 pyodide"
+  },
+  {
+   "date": "2026-11-20",
+   "name": "databricks",
+   "from": "0.2",
+   "version": "1.27.0",
+   "target": "3.14 pyodide"
+  },
+  {
    "date": "2026-11-19",
    "name": "opencv-python-headless",
    "from": "5.0.0.93",
@@ -318,16 +332,5 @@
    "target": "3.15 win-arm64"
   }
  ],
- "waiting": [
-  {
-   "name": "databricks",
-   "from": "0.2",
-   "version": "1.27.0",
-   "targets": [
-    "3.13 pyodide",
-    "3.14 pyodide"
-   ],
-   "since": "2026-11-19T11:48:51+00:00"
-  }
- ]
+ "waiting": []
 }
