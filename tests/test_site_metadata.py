@@ -101,6 +101,15 @@ class SiteMetadataTests(unittest.TestCase):
                 self.assertEqual(page.meta.get("og:image:height"), "640")
                 self.assertTrue(page.meta.get("og:image:alt"))
 
+    def test_static_pages_site_nav_in_sync_with_helper(self):
+        from scripts import build_campaigns
+
+        check_html = (ROOT / "site/check/index.html").read_text(encoding="utf-8")
+        not_found_html = (ROOT / "site/404.html").read_text(encoding="utf-8")
+
+        self.assertIn(build_campaigns.site_nav("../", current="check"), check_html)
+        self.assertIn(build_campaigns.site_nav("/tracker/"), not_found_html)
+
 
 if __name__ == "__main__":
     unittest.main()

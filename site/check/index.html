@@ -25,6 +25,14 @@
 <body>
   <header class="wrap">
     <p class="eyebrow"><a href="https://github.com/wheelgap/wheelgap">wheelgap</a> · <a href="../">tracker</a> · repo check</p>
+    <nav aria-label="Site">
+      <a href="../">Search packages</a>
+      <a href="../check/" aria-current="page">Check a repo</a>
+      <a href="../platforms/">Platforms</a>
+      <a href="../campaigns/">Campaigns</a>
+      <a href="../new/">New wheels</a>
+      <a href="../drops/">Dropped platforms</a>
+    </nav>
     <h1>Will your Python project install everywhere?</h1>
     <p class="lede">Paste a GitHub repository. wheelgap reads its lockfile, works out the platforms you ship to from your CI and Dockerfiles, and shows every dependency with no prebuilt wheel there (so it's compiled from source, or can't be installed) with the release that fixes it.</p>
     <form class="search repo-form" id="form">

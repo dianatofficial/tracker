@@ -664,6 +664,7 @@ def page(
 <body>
   <header class="wrap">
     <p class="eyebrow"><a href="../../">wheelgap tracker</a></p>
+{build_campaigns.site_nav("../../")}
     <h1>{e(name)} wheel coverage</h1>
     <p>{e(summary)}</p>
     <p class="meta">From the wheelgap {e(str(scan["wheelgap"]))} scan of {e(str(scan["generated"])[:10])}.</p>

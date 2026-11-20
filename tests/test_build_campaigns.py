@@ -742,6 +742,43 @@ class CampaignTests(unittest.TestCase):
         index = (self.site / "campaigns" / "index.html").read_text(encoding="utf-8")
         self.assertIn('<a href="../data/campaigns.json">', index)
 
+    def test_campaign_pages_have_site_nav(self):
+        page = self.built_page()
+        self.assertIn('<nav aria-label="Site">', page)
+        self.assertIn('<a href="../../campaigns/" aria-current="true">Campaigns</a>', page)
+        self.assertEqual(page.count("aria-current="), 1)
+        for target in ("../../", "../../check/", "../../platforms/", "../../campaigns/", "../../new/", "../../drops/"):
+            self.assertIn(f'<a href="{target}"', page)
+
+        index = (self.site / "campaigns" / "index.html").read_text(encoding="utf-8")
+        self.assertIn('<nav aria-label="Site">', index)
+        self.assertIn('<a href="../campaigns/" aria-current="page">Campaigns</a>', index)
+        self.assertEqual(index.count("aria-current="), 1)
+        for target in ("../", "../check/", "../platforms/", "../campaigns/", "../new/", "../drops/"):
+            self.assertIn(f'<a href="{target}"', index)
+
+    def test_site_nav_helper_behavior(self):
+        # Package page / default: no aria-current
+        nav = build_campaigns.site_nav("../../")
+        self.assertIn('<nav aria-label="Site">', nav)
+        self.assertNotIn("aria-current", nav)
+        self.assertIn('<a href="../../">Search packages</a>', nav)
+        self.assertIn('<a href="../../check/">Check a repo</a>', nav)
+        self.assertIn('<a href="../../platforms/">Platforms</a>', nav)
+        self.assertIn('<a href="../../campaigns/">Campaigns</a>', nav)
+        self.assertIn('<a href="../../new/">New wheels</a>', nav)
+        self.assertIn('<a href="../../drops/">Dropped platforms</a>', nav)
+
+        # Section own page (root="../")
+        nav_plat = build_campaigns.site_nav("../", current="platforms")
+        self.assertIn('<a href="../platforms/" aria-current="page">Platforms</a>', nav_plat)
+        self.assertEqual(nav_plat.count("aria-current"), 1)
+
+        # Section subpage (root="../../")
+        nav_plat_sub = build_campaigns.site_nav("../../", current="platforms")
+        self.assertIn('<a href="../../platforms/" aria-current="true">Platforms</a>', nav_plat_sub)
+        self.assertEqual(nav_plat_sub.count("aria-current"), 1)
+
     def test_bad_baseline_is_rejected(self):
         for fields in ({"schema": 2}, {"packages": [{"rank": 1}]}, {"start": None}, {"campaign": None},
                        {"top": "5"}, {"top": True}):

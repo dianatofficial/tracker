@@ -185,6 +185,7 @@ def page(items: list[dict], scanned: set[str]) -> str:
 <body>
   <header class="wrap">
     <p class="eyebrow"><a href="../">wheelgap tracker</a></p>
+{build_campaigns.site_nav("../", current="new")}
     <h1>New wheels</h1>
     <p class="lede">Top packages that recently shipped a prebuilt wheel for a platform where they previously built from source or couldn't install.</p>
   </header>

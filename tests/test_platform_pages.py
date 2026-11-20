@@ -120,6 +120,17 @@ class PlatformPageTests(unittest.TestCase):
         self.assertIn('<link rel="alternate" type="application/atom+xml" title="New win-arm64 wheels" href="../../new/win-arm64.xml">', win)
         for page in (root, win, linux):  # the footer's link to the tool, on the index and on each platform
             self.assertIn(f"</main>\n{build_campaigns.FOOTER}\n</body>", page)
+            self.assertIn('<nav aria-label="Site">', page)
+        # on index (root): platforms has aria-current="page", no other does
+        self.assertIn('<a href="../platforms/" aria-current="page">Platforms</a>', root)
+        self.assertEqual(root.count('aria-current='), 1)
+        for target in ("../", "../check/", "../platforms/", "../campaigns/", "../new/", "../drops/"):
+            self.assertIn(f'<a href="{target}"', root)
+        # on platform page (win): platforms has aria-current="true", no other does
+        self.assertIn('<a href="../../platforms/" aria-current="true">Platforms</a>', win)
+        self.assertEqual(win.count('aria-current='), 1)
+        for target in ("../../", "../../check/", "../../platforms/", "../../campaigns/", "../../new/", "../../drops/"):
+            self.assertIn(f'<a href="{target}"', win)
 
     def test_escaping(self):
         self.run_build()

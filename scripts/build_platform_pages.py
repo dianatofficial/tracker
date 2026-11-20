@@ -60,6 +60,7 @@ def _page(
 <body>
   <header class="wrap">
     <p class="eyebrow"><a href="{root}">wheelgap tracker</a></p>
+{build_campaigns.site_nav(root, current="platforms")}
     <h1>{e(title)}</h1>
     <p class="lede">{e(lede)}</p>
     {meta}

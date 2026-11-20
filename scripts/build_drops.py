@@ -88,6 +88,7 @@ def page(items: list[dict], waiting: int, scanned: set[str]) -> str:
 <body>
   <header class="wrap">
     <p class="eyebrow"><a href="../">wheelgap tracker</a></p>
+{build_campaigns.site_nav("../", current="drops")}
     <h1>Dropped platforms</h1>
     <p class="lede">The day a top package's new release has no wheel for a platform its previous release had one for. Projects that depend on it find out at install time, one failed build at a time; this page and its feed tell you the day it happens.</p>
   </header>

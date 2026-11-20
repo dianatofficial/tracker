@@ -376,3 +376,12 @@ def test_home_page_footer_links_the_drops_page():
 
     home = (Path(__file__).resolve().parents[1] / "site" / "index.html").read_text(encoding="utf-8")
     assert '<a href="drops/">Dropped platforms</a>' in home.split("<footer", 1)[1]
+
+
+def test_drops_page_has_site_nav():
+    page = build_drops.page([], 0, set())
+    assert '<nav aria-label="Site">' in page
+    assert '<a href="../drops/" aria-current="page">Dropped platforms</a>' in page
+    assert page.count("aria-current=") == 1
+    for target in ("../", "../check/", "../platforms/", "../campaigns/", "../new/", "../drops/"):
+        assert f'<a href="{target}"' in page

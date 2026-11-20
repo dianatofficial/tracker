@@ -67,6 +67,17 @@ def test_changes_render_newest_first_with_target_formatting():
     assert pos_16 < pos_12
 
 
+def test_package_page_has_site_nav():
+    pkg = make_package("demo")
+    scan = make_scan([pkg])
+    out = build_pages.page(pkg, scan, "3.14")
+    assert '<nav aria-label="Site">' in out
+    nav = out.split('<nav aria-label="Site">', 1)[1].split("</nav>", 1)[0]
+    assert "aria-current" not in nav
+    for target in ("../../", "../../check/", "../../platforms/", "../../campaigns/", "../../new/", "../../drops/"):
+        assert f'<a href="{target}"' in nav
+
+
 def test_same_day_losses_come_before_gains():
     changes = build_pages.changes_by_package([
         day(

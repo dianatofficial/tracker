@@ -648,6 +648,51 @@ def og_tags(title: str, description: str, url: str) -> str:
     return "\n".join(lines)
 
 
+NAV_SECTIONS: tuple[tuple[str, str, str], ...] = (
+    ("", "Search packages", "search"),
+    ("check/", "Check a repo", "check"),
+    ("platforms/", "Platforms", "platforms"),
+    ("campaigns/", "Campaigns", "campaigns"),
+    ("new/", "New wheels", "new"),
+    ("drops/", "Dropped platforms", "drops"),
+)
+
+
+def site_nav(
+    root: str,
+    current: str | tuple[str, str] | None = None,
+    aria_current: str | None = None,
+) -> str:
+    """Return a <nav aria-label="Site"> with links to the main sections.
+
+    The link for the current section is marked: aria-current="page" on that
+    section's own page, and aria-current="true" on a page inside it. Package
+    pages and 404 pass current=None (no link is marked).
+    """
+    cur_section: str | None = None
+    cur_val: str = "page" if root == "../" else "true"
+
+    if current is not None:
+        if isinstance(current, (list, tuple)) and len(current) == 2:
+            cur_section, cur_val = current[0], current[1]
+        elif isinstance(current, str) and ":" in current:
+            cur_section, cur_val = current.split(":", 1)
+        else:
+            cur_section = str(current)
+            if aria_current is not None:
+                cur_val = aria_current
+
+    lines = ['    <nav aria-label="Site">']
+    for path, label, key in NAV_SECTIONS:
+        href = f"{root}{path}"
+        attr = ""
+        if cur_section and (cur_section == key or cur_section == path.rstrip("/") or cur_section.lower() == label.lower()):
+            attr = f' aria-current="{cur_val}"'
+        lines.append(f'      <a href="{href}"{attr}>{label}</a>')
+    lines.append("    </nav>")
+    return "\n".join(lines)
+
+
 def page(
     campaign: dict,
     scan: dict,
@@ -857,6 +902,7 @@ def page(
 <body>
   <header class="wrap">
     <p class="eyebrow"><a href="../../">wheelgap tracker</a> · <a href="../">Campaigns</a></p>
+{site_nav("../../", current="campaigns")}
     <h1>{e(title)}</h1>
     <p class="lede">{e(lede)}</p>
 {sources_html}    <p class="meta">From the wheelgap {e(str(scan["wheelgap"]))} scan of {e(generated)}, using Python {e(python)}{python_why}. As JSON: <a href="../../data/campaigns/{e(campaign['id'])}.json">data/campaigns/{e(campaign['id'])}.json</a>.</p>
@@ -956,6 +1002,7 @@ def index_page(listings: list[dict], generated: str, wheelgap: str) -> str:
 <body>
   <header class="wrap">
     <p class="eyebrow"><a href="../">wheelgap tracker</a></p>
+{site_nav("../", current="campaigns")}
     <h1>Campaigns</h1>
     <p class="lede">Each campaign takes one platform and turns the missing wheels among the most-downloaded packages into a to-do list people can work through, one package at a time.</p>
     <p class="meta">From the wheelgap {e(wheelgap)} scan of {e(generated)}.</p>
