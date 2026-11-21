@@ -769,15 +769,19 @@ class CampaignTests(unittest.TestCase):
         self.assertIn('<a href="../../new/">New wheels</a>', nav)
         self.assertIn('<a href="../../drops/">Dropped platforms</a>', nav)
 
-        # Section own page (root="../")
+        # A section's own page
         nav_plat = build_campaigns.site_nav("../", current="platforms")
         self.assertIn('<a href="../platforms/" aria-current="page">Platforms</a>', nav_plat)
         self.assertEqual(nav_plat.count("aria-current"), 1)
 
-        # Section subpage (root="../../")
-        nav_plat_sub = build_campaigns.site_nav("../../", current="platforms")
+        # A page inside the section
+        nav_plat_sub = build_campaigns.site_nav("../../", current="platforms", inside=True)
         self.assertIn('<a href="../../platforms/" aria-current="true">Platforms</a>', nav_plat_sub)
         self.assertEqual(nav_plat_sub.count("aria-current"), 1)
+
+        # A misspelt section fails the build rather than quietly marking nothing
+        with self.assertRaises(ValueError):
+            build_campaigns.site_nav("../", current="platform")
 
     def test_bad_baseline_is_rejected(self):
         for fields in ({"schema": 2}, {"packages": [{"rank": 1}]}, {"start": None}, {"campaign": None},

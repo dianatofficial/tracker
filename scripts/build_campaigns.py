@@ -648,47 +648,33 @@ def og_tags(title: str, description: str, url: str) -> str:
     return "\n".join(lines)
 
 
+# The site nav every page below the home page carries (#181): section key, path under the site root, label.
+# site/check/index.html and site/404.html carry a hand-written copy; tests/test_site_metadata.py keeps them the same.
 NAV_SECTIONS: tuple[tuple[str, str, str], ...] = (
-    ("", "Search packages", "search"),
-    ("check/", "Check a repo", "check"),
-    ("platforms/", "Platforms", "platforms"),
-    ("campaigns/", "Campaigns", "campaigns"),
-    ("new/", "New wheels", "new"),
-    ("drops/", "Dropped platforms", "drops"),
+    ("search", "", "Search packages"),
+    ("check", "check/", "Check a repo"),
+    ("platforms", "platforms/", "Platforms"),
+    ("campaigns", "campaigns/", "Campaigns"),
+    ("new", "new/", "New wheels"),
+    ("drops", "drops/", "Dropped platforms"),
 )
 
 
-def site_nav(
-    root: str,
-    current: str | tuple[str, str] | None = None,
-    aria_current: str | None = None,
-) -> str:
-    """Return a <nav aria-label="Site"> with links to the main sections.
+def site_nav(root: str, current: str | None = None, *, inside: bool = False) -> str:
+    """The <nav aria-label="Site"> for a page's header, linking the site's sections.
 
-    The link for the current section is marked: aria-current="page" on that
-    section's own page, and aria-current="true" on a page inside it. Package
-    pages and 404 pass current=None (no link is marked).
+    `root` is the path from the page to the site root ("../", "../../", or "/tracker/" on the 404 page). `current`
+    is the key of the section the page belongs to: its link gets aria-current="page" on the section's own page, or
+    aria-current="true" with `inside` for a page within it (platforms/win-arm64/). Package pages and the 404 page
+    pass no section, so no link is marked.
     """
-    cur_section: str | None = None
-    cur_val: str = "page" if root == "../" else "true"
-
-    if current is not None:
-        if isinstance(current, (list, tuple)) and len(current) == 2:
-            cur_section, cur_val = current[0], current[1]
-        elif isinstance(current, str) and ":" in current:
-            cur_section, cur_val = current.split(":", 1)
-        else:
-            cur_section = str(current)
-            if aria_current is not None:
-                cur_val = aria_current
-
+    if current is not None and current not in {key for key, _, _ in NAV_SECTIONS}:
+        raise ValueError(f"site_nav: unknown section {current!r}")
+    e = html.escape
     lines = ['    <nav aria-label="Site">']
-    for path, label, key in NAV_SECTIONS:
-        href = f"{root}{path}"
-        attr = ""
-        if cur_section and (cur_section == key or cur_section == path.rstrip("/") or cur_section.lower() == label.lower()):
-            attr = f' aria-current="{cur_val}"'
-        lines.append(f'      <a href="{href}"{attr}>{label}</a>')
+    for key, path, label in NAV_SECTIONS:
+        mark = f' aria-current="{"true" if inside else "page"}"' if key == current else ""
+        lines.append(f'      <a href="{e(root + path, quote=True)}"{mark}>{e(label)}</a>')
     lines.append("    </nav>")
     return "\n".join(lines)
 
@@ -902,7 +888,7 @@ def page(
 <body>
   <header class="wrap">
     <p class="eyebrow"><a href="../../">wheelgap tracker</a> · <a href="../">Campaigns</a></p>
-{site_nav("../../", current="campaigns")}
+{site_nav("../../", current="campaigns", inside=True)}
     <h1>{e(title)}</h1>
     <p class="lede">{e(lede)}</p>
 {sources_html}    <p class="meta">From the wheelgap {e(str(scan["wheelgap"]))} scan of {e(generated)}, using Python {e(python)}{python_why}. As JSON: <a href="../../data/campaigns/{e(campaign['id'])}.json">data/campaigns/{e(campaign['id'])}.json</a>.</p>
