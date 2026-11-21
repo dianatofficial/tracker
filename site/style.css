@@ -46,7 +46,7 @@ body {
 a { color: var(--accent); }
 code, pre { font-family: var(--mono); font-size: 0.9em; }
 code { overflow-wrap: anywhere; word-break: break-word; }
-pre code { overflow-wrap: normal; word-break: normal; }
+pre code { overflow-wrap: inherit; word-break: inherit; }
 
 .wrap { max-width: 920px; margin: 0 auto; padding: 0 16px; }
 
