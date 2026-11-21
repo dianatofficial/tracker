@@ -103,6 +103,38 @@ test("an unreadable pyproject.toml the page picked itself gives way to the repo'
   assert.deepEqual(withoutUnreadable(nested, "a/pyproject.toml", true), [nested[1]]);
 });
 
+test("unreadableReason and withoutUnreadable fall through when all packages of pyproject.toml are private", () => {
+  const locks = [{ path: "pyproject.toml", offline: false }, { path: "backend/uv.lock", offline: true }];
+  const allPrivate = {
+    lockfile: "pyproject.toml",
+    looked_up: true,
+    listed: 3,
+    packages: 0,
+    private: ["fastapi", "numpy", "mylib"],
+    skipped: ["fastapi", "numpy", "mylib"],
+    rows: [],
+    targets: [],
+    outside_lock: [],
+  };
+  const h = headline(allPrivate);
+
+  // 1. an auto-picked pyproject.toml with all packages private and another file in the repo (moves on):
+  const reason = unreadableReason(allPrivate);
+  assert.equal(reason, "every package was skipped as a private index");
+  assert.deepEqual(withoutUnreadable(locks, "pyproject.toml", true), [locks[1]]);
+
+  // 2. the same with no other file (stays, with the new verdict text):
+  assert.equal(withoutUnreadable([locks[0]], "pyproject.toml", true), null);
+  assert.equal(verdictText(h, allPrivate), "pyproject.toml wasn't checked: it sets [tool.uv] sources, so this page can't tell which packages are PyPI's");
+
+  // 3. the same file chosen by the visitor (stays):
+  assert.equal(withoutUnreadable(locks, "pyproject.toml", false), null);
+
+  // 4. a pyproject.toml with some private and some checked packages (stays: it's an answer):
+  const somePrivate = { lockfile: "pyproject.toml", looked_up: true, listed: 3, packages: 2, private: ["mylib"], skipped: ["mylib"], rows: [] };
+  assert.equal(unreadableReason(somePrivate), null);
+});
+
 test("a file with nothing to check is no answer; one whose packages were skipped or aren't installed is", () => {
   const error = "pyproject.toml: no [project] table, so there are no dependencies to read";
   assert.equal(unreadableReason({ kind: "source", error }), error);

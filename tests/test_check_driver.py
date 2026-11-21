@@ -673,3 +673,18 @@ def test_the_result_counts_the_packages_a_file_lists(tmp_path):
     )
     r = json.loads(driver.check(str(tmp_path), "pyproject.toml", options(), "{}"))
     assert (r["listed"], r["packages"], r["skipped"], r["rows"]) == (1, 0, [], [])
+
+
+def test_pyproject_with_uv_sources_marks_every_dependency_private(tmp_path):
+    (tmp_path / "pyproject.toml").write_text(
+        '[project]\nname = "myapp"\nversion = "0.1.0"\ndependencies = ["fastapi", "numpy", "mylib"]\n\n'
+        "[tool.uv.sources]\nmylib = { workspace = true }\n",
+        encoding="utf-8",
+    )
+    r = json.loads(driver.check(str(tmp_path), "pyproject.toml", options(), "{}"))
+    assert r["listed"] == 3
+    assert r["packages"] == 0
+    assert r["private"] == ["fastapi", "mylib", "numpy"]
+    assert r["skipped"] == ["fastapi", "mylib", "numpy"]
+    assert r["looked_up"] is True
+

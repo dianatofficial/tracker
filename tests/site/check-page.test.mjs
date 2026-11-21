@@ -282,3 +282,59 @@ test("the badge is a small static image on the page's own origin, offered as Mar
   assert.match(page, /\$\("copy-badge"\)\.onclick = \(e\) => copy\(e\.currentTarget, \$\("badge-md"\)\.textContent, "Badge Markdown copied"\);/);
   assert.doesNotMatch(page, /innerHTML/);
 });
+
+test("a pyproject.toml whose packages were all skipped as private shows the new verdict and the CLI command in alerts", () => {
+  const source = read("check.mjs");
+  const fn = (name) => {
+    const found = source.match(new RegExp(`^(?:async )?function ${name}\\(.*?^}$`, "ms"));
+    assert.ok(found, `${name} is in check.mjs`);
+    return found[0];
+  };
+  const elements = new Map();
+  const $ = (id) => {
+    if (!elements.has(id)) {
+      elements.set(id, {
+        textContent: "",
+        hidden: false,
+        children: [],
+        classList: { toggle() {}, remove() {} },
+        closest: () => ({ classList: { toggle() {}, remove() {} } }),
+        replaceChildren: (...kids) => { elements.get(id).children = kids; },
+      });
+    }
+    return elements.get(id);
+  };
+  const state = {
+    repo: { owner: "demo", name: "app" },
+    ref: "HEAD",
+    lockfile: "pyproject.toml",
+    pythons: ["3.14"],
+    platforms: ["linux-x86_64"],
+    result: {
+      lockfile: "pyproject.toml",
+      looked_up: true,
+      listed: 3,
+      packages: 0,
+      private: ["fastapi", "numpy", "mylib"],
+      skipped: ["fastapi", "numpy", "mylib"],
+      outside_lock: [],
+      rows: [],
+      targets: [{ python: "3.14", platform: "linux-x86_64", label: "3.14 linux-x86_64" }],
+    },
+  };
+  const el = (tag, attrs = {}, ...kids) => {
+    const text = attrs.text || "";
+    const kidTexts = kids.map((k) => (typeof k === "string" ? k : k.text || k.textContent || "")).join("");
+    return { tag, attrs, text: text + kidTexts, textContent: text + kidTexts };
+  };
+  const runVerdict = new Function("$", "state", "el", "headline", "verdictText", "sortPythons", "cliCommand", "missedText", "nextSteps", `
+    ${fn("renderVerdict")}
+    return renderVerdict;
+  `)($, state, el, checkLogic.headline, checkLogic.verdictText, checkLogic.sortPythons, checkLogic.cliCommand, checkLogic.missedText, checkLogic.nextSteps);
+
+  runVerdict();
+  assert.equal($("verdict").textContent, "pyproject.toml wasn't checked: it sets [tool.uv] sources, so this page can't tell which packages are PyPI's");
+  const alertTexts = $("alerts").children.map((c) => c.text);
+  assert.ok(alertTexts.some((t) => t.includes("uvx wheelgap pyproject.toml -p 3.14 -t linux-x86_64")));
+  assert.ok(alertTexts.some((t) => t.includes("or commit a uv.lock: the checker reads it in full, with no lookups")));
+});

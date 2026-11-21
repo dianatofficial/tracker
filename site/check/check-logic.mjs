@@ -103,11 +103,15 @@ export function withoutUnreadable(lockfiles, failed, auto) {
 
 // Why a file's result is no answer, so that withoutUnreadable() may move on from it, or null when the result stands:
 // wheelgap couldn't read it (its error), or it was read and lists no packages at all (a pyproject.toml whose
-// [project] has no dependencies). One whose packages were all skipped, or aren't installed on the targets picked,
-// is an answer.
+// [project] has no dependencies), or every package was skipped as a private index (a pyproject.toml with [tool.uv] sources).
+// One whose packages aren't installed on the targets picked, or with only some skipped, is an answer.
 export function unreadableReason(result) {
   if (result.kind === "source") return result.error || "wheelgap couldn't read it";
-  return !result.error && result.looked_up && result.listed === 0 ? "it lists no dependencies" : null;
+  if (!result.error && result.looked_up && result.listed === 0) return "it lists no dependencies";
+  if (!result.error && result.looked_up && result.listed > 0 && result.private?.length === result.listed) {
+    return "every package was skipped as a private index";
+  }
+  return null;
 }
 
 // A platform's tile, from its counts ({wheel, source, missing, unknown}): how many packages have no wheel there, a ✓
@@ -299,7 +303,11 @@ export function fixPrompt(repoName, result, fixes, pythons, platforms, gapWheels
 }
 
 // The verdict's headline sentence.
-export function verdictText(h) {
+export function verdictText(h, result = null) {
+  if (result && !result.error && result.looked_up && result.listed > 0 && result.private?.length === result.listed) {
+    const lock = result.lockfile || "pyproject.toml";
+    return `${lock} wasn't checked: it sets [tool.uv] sources, so this page can't tell which packages are PyPI's`;
+  }
   // Nothing to count (every package skipped, or none listed): never a ✓, which would read as a pass.
   if (h.packages === 0) return "No packages were checked";
   const where = h.targets === 1 ? "this target" : `all ${h.targets} targets`;

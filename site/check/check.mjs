@@ -249,7 +249,7 @@ function renderVerdict() {
   const card = $("verdict").closest("section");
   const repoName = `${state.repo.owner}/${state.repo.name}`;
   card.classList.toggle("clean", h.gaps === 0 && h.unknown === 0 && h.targets > 0 && h.packages > 0);
-  $("verdict").textContent = h.targets === 0 ? `${repoName}'s lockfile leaves out every Python picked` : verdictText(h);
+  $("verdict").textContent = h.targets === 0 ? `${repoName}'s lockfile leaves out every Python picked` : verdictText(h, r);
   const steps = nextSteps(state.pythons, state.platforms);
   $("next").hidden = !steps.length;
   $("next-buttons").replaceChildren(...steps.map((s) => el("button", {
@@ -268,7 +268,13 @@ function renderVerdict() {
   if (missed) alerts.push(el("p", { class: "alert warn", text: missed }));
   const some = (names) => `${names.slice(0, 8).join(", ")}${names.length > 8 ? `, and ${names.length - 8} more` : ""}`;
   const privateIndex = r.private || [];
-  if (privateIndex.length) {
+  const allPrivate = r.looked_up && r.listed > 0 && privateIndex.length === r.listed;
+  if (allPrivate) {
+    const cmd = cliCommand(r, state.pythons, state.platforms);
+    alerts.push(el("p", { class: "alert" },
+      `Run `, el("code", { text: cmd }), ` in a checkout, or commit a uv.lock: the checker reads it in full, with no lookups.`
+    ));
+  } else if (privateIndex.length) {
     alerts.push(el("p", { class: "alert warn", text: `Not checked: ${r.lockfile} names an index or source other than PyPI (an --index-url or --extra-index-url line, a [tool.uv] index or sources setting, a Pipfile source), so these may not be PyPI's packages and their names aren't sent to pypi.org: ${some(privateIndex)}. To check them on that index, run uvx wheelgap --index-url with its URL in a checkout.` }));
   }
   const skipped = r.skipped.filter((name) => !privateIndex.includes(name));
@@ -276,7 +282,7 @@ function renderVerdict() {
     alerts.push(el("p", { class: "alert", text: `Not checked, since they aren't from PyPI (the project itself, or path, Git and workspace packages): ${some(skipped)}.` }));
   }
   const base = r.lockfile.split("/").pop();
-  if (r.looked_up && (base === "pyproject.toml" || base.startsWith("requirements"))) {
+  if (!allPrivate && r.looked_up && (base === "pyproject.toml" || base.startsWith("requirements"))) {
     alerts.push(el("p", { class: "alert", text: `${r.lockfile} is checked for its direct requirements, as uvx wheelgap ${r.lockfile} does; uvx wheelgap --deps ${r.lockfile} on the command line checks the whole dependency tree.` }));
   }
   $("alerts").replaceChildren(...alerts);
