@@ -1,6 +1,6 @@
 {
  "schema": 1,
- "updated": "2026-11-15",
+ "updated": "2026-11-22",
  "targets": {
   "3.14 win-arm64": {
    "runner": "windows-11-arm",
@@ -17,6 +17,14 @@
   "3.14 musl-aarch64": {
    "runner": "ubuntu-24.04-arm",
    "python": "3.14"
+  },
+  "3.15 linux-x86_64": {
+   "runner": "ubuntu-24.04",
+   "python": "3.15"
+  },
+  "3.15 win-amd64": {
+   "runner": "windows-2025",
+   "python": "3.15"
   }
  },
  "results": [
@@ -70,12 +78,12 @@
   {
    "schema": 1,
    "name": "amazon-ion",
-   "version": "0.15.0",
+   "version": "0.16.0",
    "target": "3.14t linux-x86_64",
    "runner": "ubuntu-24.04",
    "python": "3.14.10t",
    "outcome": "built",
-   "seconds": 17,
+   "seconds": 29,
    "wheel": "cp314-cp314t-linux_x86_64",
    "extensions": 0,
    "import": "ok",
@@ -89,18 +97,18 @@
     "gcc",
     "cmake"
    ],
-   "date": "2026-11-15",
-   "log": "https://github.com/wheelgap/tracker/actions/runs/43750127182"
+   "date": "2026-11-22",
+   "log": "https://github.com/dianatofficial/tracker/actions/runs/45024431191"
   },
   {
    "schema": 1,
    "name": "amazon-ion",
-   "version": "0.15.0",
+   "version": "0.16.0",
    "target": "3.14t win-arm64",
    "runner": "windows-11-arm",
    "python": "3.14.10t",
    "outcome": "built",
-   "seconds": 44,
+   "seconds": 39,
    "wheel": "cp314-cp314t-win_arm64",
    "extensions": 1,
    "import": "failed",
@@ -114,18 +122,68 @@
     "gcc",
     "cmake"
    ],
-   "date": "2026-11-15",
-   "log": "https://github.com/wheelgap/tracker/actions/runs/43750127182"
+   "date": "2026-11-22",
+   "log": "https://github.com/dianatofficial/tracker/actions/runs/45024431191"
+  },
+  {
+   "schema": 1,
+   "name": "amazon-ion",
+   "version": "0.16.0",
+   "target": "3.15 linux-x86_64",
+   "runner": "ubuntu-24.04",
+   "python": "3.15.2",
+   "outcome": "built",
+   "seconds": 28,
+   "wheel": "cp315-cp315-linux_x86_64",
+   "extensions": 0,
+   "import": "ok",
+   "gil": null,
+   "gil_module": null,
+   "reason": null,
+   "excerpt": "",
+   "toolchains": [
+    "rustc",
+    "cargo",
+    "gcc",
+    "cmake"
+   ],
+   "date": "2026-11-22",
+   "log": "https://github.com/dianatofficial/tracker/actions/runs/45024431191"
+  },
+  {
+   "schema": 1,
+   "name": "amazon-ion",
+   "version": "0.16.0",
+   "target": "3.15 win-amd64",
+   "runner": "windows-2025",
+   "python": "3.15.2",
+   "outcome": "built",
+   "seconds": 43,
+   "wheel": "cp315-cp315-win_amd64",
+   "extensions": 1,
+   "import": "ok",
+   "gil": null,
+   "gil_module": null,
+   "reason": null,
+   "excerpt": "",
+   "toolchains": [
+    "rustc",
+    "cargo",
+    "gcc",
+    "cmake"
+   ],
+   "date": "2026-11-22",
+   "log": "https://github.com/dianatofficial/tracker/actions/runs/45024431191"
   },
   {
    "schema": 1,
    "name": "awscrt",
-   "version": "0.38.1",
+   "version": "0.38.2",
    "target": "3.14 win-arm64",
    "runner": "windows-11-arm",
    "python": "3.14.10",
    "outcome": "built",
-   "seconds": 128,
+   "seconds": 130,
    "wheel": "cp313-abi3-win_arm64",
    "extensions": 1,
    "import": "ok",
@@ -139,18 +197,18 @@
     "gcc",
     "cmake"
    ],
-   "date": "2026-11-15",
-   "log": "https://github.com/wheelgap/tracker/actions/runs/43743579096"
+   "date": "2026-11-22",
+   "log": "https://github.com/dianatofficial/tracker/actions/runs/45024431191"
   },
   {
    "schema": 1,
    "name": "awscrt",
-   "version": "0.38.1",
+   "version": "0.38.2",
    "target": "3.14t win-arm64",
    "runner": "windows-11-arm",
    "python": "3.14.10t",
    "outcome": "built",
-   "seconds": 122,
+   "seconds": 120,
    "wheel": "cp314-cp314t-win_arm64",
    "extensions": 1,
    "import": "ok",
@@ -164,8 +222,8 @@
     "gcc",
     "cmake"
    ],
-   "date": "2026-11-15",
-   "log": "https://github.com/wheelgap/tracker/actions/runs/43743579096"
+   "date": "2026-11-22",
+   "log": "https://github.com/dianatofficial/tracker/actions/runs/45024431191"
   },
   {
    "schema": 1,
@@ -313,8 +371,33 @@
   },
   {
    "schema": 1,
+   "name": "cedarpy",
+   "version": "4.12.2",
+   "target": "3.15 win-amd64",
+   "runner": "windows-2025",
+   "python": "3.15.2",
+   "outcome": "built",
+   "seconds": 172,
+   "wheel": "cp315-cp315-win_amd64",
+   "extensions": 1,
+   "import": "ok",
+   "gil": null,
+   "gil_module": null,
+   "reason": null,
+   "excerpt": "",
+   "toolchains": [
+    "rustc",
+    "cargo",
+    "gcc",
+    "cmake"
+   ],
+   "date": "2026-11-22",
+   "log": "https://github.com/dianatofficial/tracker/actions/runs/45024431191"
+  },
+  {
+   "schema": 1,
    "name": "claude-agent-sdk",
-   "version": "0.2.182",
+   "version": "0.2.187",
    "target": "3.14 musl-aarch64",
    "runner": "ubuntu-24.04-arm",
    "python": "3.14.10",
@@ -330,13 +413,13 @@
    "toolchains": [
     "gcc"
    ],
-   "date": "2026-11-15",
-   "log": "https://github.com/wheelgap/tracker/actions/runs/43743579096"
+   "date": "2026-11-22",
+   "log": "https://github.com/dianatofficial/tracker/actions/runs/45024431191"
   },
   {
    "schema": 1,
    "name": "claude-agent-sdk",
-   "version": "0.2.182",
+   "version": "0.2.187",
    "target": "3.14 win-arm64",
    "runner": "windows-11-arm",
    "python": "3.14.10",
@@ -355,18 +438,18 @@
     "gcc",
     "cmake"
    ],
-   "date": "2026-11-15",
-   "log": "https://github.com/wheelgap/tracker/actions/runs/43743579096"
+   "date": "2026-11-22",
+   "log": "https://github.com/dianatofficial/tracker/actions/runs/45024431191"
   },
   {
    "schema": 1,
    "name": "claude-agent-sdk",
-   "version": "0.2.182",
+   "version": "0.2.187",
    "target": "3.14t win-arm64",
    "runner": "windows-11-arm",
    "python": "3.14.10t",
    "outcome": "built",
-   "seconds": 7,
+   "seconds": 6,
    "wheel": "py3-none-any",
    "extensions": 0,
    "import": "deps-failed",
@@ -380,13 +463,13 @@
     "gcc",
     "cmake"
    ],
-   "date": "2026-11-15",
-   "log": "https://github.com/wheelgap/tracker/actions/runs/43743579096"
+   "date": "2026-11-22",
+   "log": "https://github.com/dianatofficial/tracker/actions/runs/45024431191"
   },
   {
    "schema": 1,
    "name": "confluent-kafka",
-   "version": "2.16.1",
+   "version": "2.16.2",
    "target": "3.14 musl-aarch64",
    "runner": "ubuntu-24.04-arm",
    "python": "3.14.10",
@@ -398,62 +481,62 @@
    "gil": null,
    "gil_module": null,
    "reason": "needs a system library",
-   "excerpt": "/src/confluent_kafka/src/Admin.c', '-o', 'build/temp.linux-aarch64-cpython-314/tmp/pip-wheel-hgj76hcv/confluent-kafka_d915554dd3b746e0882047ebf8df6a02/src/confluent_kafka/src/Admin.o']' returned non-zero exit status 1. | note: This error originates from a subprocess, and is likely not a problem with pip. | ERROR: Failed building wheel for confluent-kafka | ERROR: Failed to build one or more wheels",
+   "excerpt": "/src/confluent_kafka/src/Admin.c', '-o', 'build/temp.linux-aarch64-cpython-314/tmp/pip-wheel-uc_6saju/confluent-kafka_bb0075e9dec64da98116d94888550d37/src/confluent_kafka/src/Admin.o']' returned non-zero exit status 1. | note: This error originates from a subprocess, and is likely not a problem with pip. | ERROR: Failed building wheel for confluent-kafka | ERROR: Failed to build one or more wheels",
    "toolchains": [
     "gcc"
    ],
-   "date": "2026-11-15",
-   "log": "https://github.com/wheelgap/tracker/actions/runs/43743579096"
+   "date": "2026-11-22",
+   "log": "https://github.com/dianatofficial/tracker/actions/runs/45024431191"
   },
   {
    "schema": 1,
    "name": "confluent-kafka",
-   "version": "2.16.1",
+   "version": "2.16.2",
    "target": "3.14 win-arm64",
    "runner": "windows-11-arm",
    "python": "3.14.10",
    "outcome": "failed",
-   "seconds": 18,
+   "seconds": 19,
    "wheel": null,
    "extensions": null,
    "import": null,
    "gil": null,
    "gil_module": null,
    "reason": "compile error",
-   "excerpt": "p.win-arm64-cpython-314\\\\Release\\\\Users\\\\runneradmin\\\\AppData\\\\Local\\\\Temp\\\\pip-wheel-216bak4y\\\\confluent-kafka_0d1519d5bb6d41fea966b5b98fd8ea85\\\\src\\\\confluent_kafka\\\\src\\\\Admin.obj']' returned non-zero exit status 2. | note: This error originates from a subprocess, and is likely not a problem with pip. | ERROR: Failed building wheel for confluent-kafka | ERROR: Failed to build one or more wheels",
+   "excerpt": "p.win-arm64-cpython-314\\\\Release\\\\Users\\\\runneradmin\\\\AppData\\\\Local\\\\Temp\\\\pip-wheel-_fxyeg2x\\\\confluent-kafka_f9d0c3dc38b94288b02d1e216b8bb7df\\\\src\\\\confluent_kafka\\\\src\\\\Admin.obj']' returned non-zero exit status 2. | note: This error originates from a subprocess, and is likely not a problem with pip. | ERROR: Failed building wheel for confluent-kafka | ERROR: Failed to build one or more wheels",
    "toolchains": [
     "rustc",
     "cargo",
     "gcc",
     "cmake"
    ],
-   "date": "2026-11-15",
-   "log": "https://github.com/wheelgap/tracker/actions/runs/43743579096"
+   "date": "2026-11-22",
+   "log": "https://github.com/dianatofficial/tracker/actions/runs/45024431191"
   },
   {
    "schema": 1,
    "name": "confluent-kafka",
-   "version": "2.16.1",
+   "version": "2.16.2",
    "target": "3.14t win-arm64",
    "runner": "windows-11-arm",
    "python": "3.14.10t",
    "outcome": "failed",
-   "seconds": 12,
+   "seconds": 15,
    "wheel": null,
    "extensions": null,
    "import": null,
    "gil": null,
    "gil_module": null,
    "reason": "compile error",
-   "excerpt": ".win-arm64-cpython-314t\\\\Release\\\\Users\\\\runneradmin\\\\AppData\\\\Local\\\\Temp\\\\pip-wheel-7g6g8i1h\\\\confluent-kafka_4711f7035a3941a78b366ffc2bf5c705\\\\src\\\\confluent_kafka\\\\src\\\\Admin.obj']' returned non-zero exit status 2. | note: This error originates from a subprocess, and is likely not a problem with pip. | ERROR: Failed building wheel for confluent-kafka | ERROR: Failed to build one or more wheels",
+   "excerpt": ".win-arm64-cpython-314t\\\\Release\\\\Users\\\\runneradmin\\\\AppData\\\\Local\\\\Temp\\\\pip-wheel-6x4mcrcb\\\\confluent-kafka_ac3273baed2040688aab7aede43931a5\\\\src\\\\confluent_kafka\\\\src\\\\Admin.obj']' returned non-zero exit status 2. | note: This error originates from a subprocess, and is likely not a problem with pip. | ERROR: Failed building wheel for confluent-kafka | ERROR: Failed to build one or more wheels",
    "toolchains": [
     "rustc",
     "cargo",
     "gcc",
     "cmake"
    ],
-   "date": "2026-11-15",
-   "log": "https://github.com/wheelgap/tracker/actions/runs/43743579096"
+   "date": "2026-11-22",
+   "log": "https://github.com/dianatofficial/tracker/actions/runs/45024431191"
   },
   {
    "schema": 1,
@@ -583,52 +666,102 @@
   {
    "schema": 1,
    "name": "ddtrace",
-   "version": "4.17.0",
+   "version": "4.17.2",
    "target": "3.14t linux-x86_64",
    "runner": "ubuntu-24.04",
    "python": "3.14.10t",
    "outcome": "failed",
-   "seconds": 343,
+   "seconds": 342,
    "wheel": null,
    "extensions": null,
    "import": null,
    "gil": null,
    "gil_module": null,
    "reason": "compile error",
-   "excerpt": "subprocess.CalledProcessError: Command '[PosixPath('/tmp/pip-build-env-4ezqfkfd/overlay/lib/python3.14t/site-packages/cmake/data/bin/cmake'), '--build', '.', '--config RelWithDebInfo']' returned non-zero exit status 2. | note: This error originates from a subprocess, and is likely not a problem with pip. | ERROR: Failed building wheel for ddtrace | ERROR: Failed to build one or more wheels",
+   "excerpt": "subprocess.CalledProcessError: Command '[PosixPath('/tmp/pip-build-env-cqzbo6tg/overlay/lib/python3.14t/site-packages/cmake/data/bin/cmake'), '--build', '.', '--config RelWithDebInfo']' returned non-zero exit status 2. | note: This error originates from a subprocess, and is likely not a problem with pip. | ERROR: Failed building wheel for ddtrace | ERROR: Failed to build one or more wheels",
    "toolchains": [
     "rustc",
     "cargo",
     "gcc",
     "cmake"
    ],
-   "date": "2026-11-15",
-   "log": "https://github.com/wheelgap/tracker/actions/runs/43743579096"
+   "date": "2026-11-22",
+   "log": "https://github.com/dianatofficial/tracker/actions/runs/45024431191"
   },
   {
    "schema": 1,
    "name": "ddtrace",
-   "version": "4.17.0",
+   "version": "4.17.2",
    "target": "3.14t win-arm64",
    "runner": "windows-11-arm",
    "python": "3.14.10t",
-   "outcome": "failed",
-   "seconds": 27,
-   "wheel": null,
-   "extensions": null,
-   "import": null,
-   "gil": null,
-   "gil_module": null,
-   "reason": "compile error",
-   "excerpt": "error: subprocess-exited-with-error | Getting requirements to build wheel did not run successfully. | note: This error originates from a subprocess, and is likely not a problem with pip. | ERROR: Failed to build 'ddtrace' when getting requirements to build wheel",
+   "outcome": "built",
+   "seconds": 339,
+   "wheel": "cp314-cp314t-win_arm64",
+   "extensions": 10,
+   "import": "ok",
+   "gil": "re-enabled",
+   "gil_module": "ddtrace.internal._encoding",
+   "reason": null,
+   "excerpt": "",
    "toolchains": [
     "rustc",
     "cargo",
     "gcc",
     "cmake"
    ],
-   "date": "2026-11-15",
-   "log": "https://github.com/wheelgap/tracker/actions/runs/43743579096"
+   "date": "2026-11-22",
+   "log": "https://github.com/dianatofficial/tracker/actions/runs/45024431191"
+  },
+  {
+   "schema": 1,
+   "name": "ddtrace",
+   "version": "4.17.2",
+   "target": "3.15 win-amd64",
+   "runner": "windows-2025",
+   "python": "3.15.2",
+   "outcome": "built",
+   "seconds": 274,
+   "wheel": "cp315-cp315-win_amd64",
+   "extensions": 10,
+   "import": "ok",
+   "gil": null,
+   "gil_module": null,
+   "reason": null,
+   "excerpt": "",
+   "toolchains": [
+    "rustc",
+    "cargo",
+    "gcc",
+    "cmake"
+   ],
+   "date": "2026-11-22",
+   "log": "https://github.com/dianatofficial/tracker/actions/runs/45024431191"
+  },
+  {
+   "schema": 1,
+   "name": "deptry",
+   "version": "0.25.1",
+   "target": "3.14t linux-x86_64",
+   "runner": "ubuntu-24.04",
+   "python": "3.14.10t",
+   "outcome": "built",
+   "seconds": 74,
+   "wheel": "cp314-cp314t-linux_x86_64",
+   "extensions": 1,
+   "import": "failed",
+   "gil": null,
+   "gil_module": null,
+   "reason": null,
+   "excerpt": "Error: Invalid value for 'ROOT...': Path 'top' does not exist.",
+   "toolchains": [
+    "rustc",
+    "cargo",
+    "gcc",
+    "cmake"
+   ],
+   "date": "2026-11-22",
+   "log": "https://github.com/dianatofficial/tracker/actions/runs/45024431191"
   },
   {
    "schema": 1,
@@ -730,12 +863,12 @@
   {
    "schema": 1,
    "name": "duckdb",
-   "version": "2.0.0",
+   "version": "2.0.1",
    "target": "3.14 musl-aarch64",
    "runner": "ubuntu-24.04-arm",
    "python": "3.14.10",
    "outcome": "built",
-   "seconds": 928,
+   "seconds": 1129,
    "wheel": "cp312-abi3-linux_aarch64",
    "extensions": 1,
    "import": "ok",
@@ -746,18 +879,18 @@
    "toolchains": [
     "gcc"
    ],
-   "date": "2026-11-15",
-   "log": "https://github.com/wheelgap/tracker/actions/runs/43743579096"
+   "date": "2026-11-22",
+   "log": "https://github.com/dianatofficial/tracker/actions/runs/45024431191"
   },
   {
    "schema": 1,
    "name": "duckdb",
-   "version": "2.0.0",
+   "version": "2.0.1",
    "target": "3.14t linux-x86_64",
    "runner": "ubuntu-24.04",
    "python": "3.14.10t",
    "outcome": "built",
-   "seconds": 1169,
+   "seconds": 1292,
    "wheel": "cp314-cp314t-linux_x86_64",
    "extensions": 1,
    "import": "ok",
@@ -771,18 +904,18 @@
     "gcc",
     "cmake"
    ],
-   "date": "2026-11-15",
-   "log": "https://github.com/wheelgap/tracker/actions/runs/43743579096"
+   "date": "2026-11-22",
+   "log": "https://github.com/dianatofficial/tracker/actions/runs/45024431191"
   },
   {
    "schema": 1,
    "name": "duckdb",
-   "version": "2.0.0",
+   "version": "2.0.1",
    "target": "3.14t win-arm64",
    "runner": "windows-11-arm",
    "python": "3.14.10t",
    "outcome": "failed",
-   "seconds": 1476,
+   "seconds": 1423,
    "wheel": null,
    "extensions": null,
    "import": null,
@@ -796,8 +929,8 @@
     "gcc",
     "cmake"
    ],
-   "date": "2026-11-15",
-   "log": "https://github.com/wheelgap/tracker/actions/runs/43743579096"
+   "date": "2026-11-22",
+   "log": "https://github.com/dianatofficial/tracker/actions/runs/45024431191"
   },
   {
    "schema": 1,
@@ -898,6 +1031,56 @@
    ],
    "date": "2026-11-15",
    "log": "https://github.com/wheelgap/tracker/actions/runs/43743579096"
+  },
+  {
+   "schema": 1,
+   "name": "fastuuid",
+   "version": "0.14.0",
+   "target": "3.15 linux-x86_64",
+   "runner": "ubuntu-24.04",
+   "python": "3.15.2",
+   "outcome": "failed",
+   "seconds": 14,
+   "wheel": null,
+   "extensions": null,
+   "import": null,
+   "gil": null,
+   "gil_module": null,
+   "reason": "compile error",
+   "excerpt": "Error: command ['maturin', 'pep517', 'build-wheel', '-i', '/opt/hostedtoolcache/Python/3.15.2/x64/bin/python', '--compatibility', 'off'] returned non-zero exit status 1 | note: This error originates from a subprocess, and is likely not a problem with pip. | ERROR: Failed building wheel for fastuuid | ERROR: Failed to build one or more wheels",
+   "toolchains": [
+    "rustc",
+    "cargo",
+    "gcc",
+    "cmake"
+   ],
+   "date": "2026-11-22",
+   "log": "https://github.com/dianatofficial/tracker/actions/runs/45024431191"
+  },
+  {
+   "schema": 1,
+   "name": "fastuuid",
+   "version": "0.14.0",
+   "target": "3.15 win-amd64",
+   "runner": "windows-2025",
+   "python": "3.15.2",
+   "outcome": "failed",
+   "seconds": 34,
+   "wheel": null,
+   "extensions": null,
+   "import": null,
+   "gil": null,
+   "gil_module": null,
+   "reason": "compile error",
+   "excerpt": "Error: command ['maturin', 'pep517', 'build-wheel', '-i', 'C:\\\\hostedtoolcache\\\\windows\\\\Python\\\\3.15.2\\\\x64\\\\python.exe', '--compatibility', 'off'] returned non-zero exit status 1 | note: This error originates from a subprocess, and is likely not a problem with pip. | ERROR: Failed building wheel for fastuuid | ERROR: Failed to build one or more wheels",
+   "toolchains": [
+    "rustc",
+    "cargo",
+    "gcc",
+    "cmake"
+   ],
+   "date": "2026-11-22",
+   "log": "https://github.com/dianatofficial/tracker/actions/runs/45024431191"
   },
   {
    "schema": 1,
@@ -1146,12 +1329,12 @@
   {
    "schema": 1,
    "name": "grpcio",
-   "version": "1.85.1",
+   "version": "1.85.3",
    "target": "3.14 win-arm64",
    "runner": "windows-11-arm",
    "python": "3.14.10",
    "outcome": "failed",
-   "seconds": 47,
+   "seconds": 46,
    "wheel": null,
    "extensions": null,
    "import": null,
@@ -1165,18 +1348,18 @@
     "gcc",
     "cmake"
    ],
-   "date": "2026-11-15",
-   "log": "https://github.com/wheelgap/tracker/actions/runs/43743579096"
+   "date": "2026-11-22",
+   "log": "https://github.com/dianatofficial/tracker/actions/runs/45024431191"
   },
   {
    "schema": 1,
    "name": "grpcio",
-   "version": "1.85.1",
+   "version": "1.85.3",
    "target": "3.14t linux-x86_64",
    "runner": "ubuntu-24.04",
    "python": "3.14.10t",
    "outcome": "built",
-   "seconds": 799,
+   "seconds": 758,
    "wheel": "cp314-cp314t-linux_x86_64",
    "extensions": 1,
    "import": "ok",
@@ -1190,18 +1373,18 @@
     "gcc",
     "cmake"
    ],
-   "date": "2026-11-15",
-   "log": "https://github.com/wheelgap/tracker/actions/runs/43743579096"
+   "date": "2026-11-22",
+   "log": "https://github.com/dianatofficial/tracker/actions/runs/45024431191"
   },
   {
    "schema": 1,
    "name": "grpcio",
-   "version": "1.85.1",
+   "version": "1.85.3",
    "target": "3.14t win-arm64",
    "runner": "windows-11-arm",
    "python": "3.14.10t",
    "outcome": "failed",
-   "seconds": 35,
+   "seconds": 39,
    "wheel": null,
    "extensions": null,
    "import": null,
@@ -1215,18 +1398,18 @@
     "gcc",
     "cmake"
    ],
-   "date": "2026-11-15",
-   "log": "https://github.com/wheelgap/tracker/actions/runs/43743579096"
+   "date": "2026-11-22",
+   "log": "https://github.com/dianatofficial/tracker/actions/runs/45024431191"
   },
   {
    "schema": 1,
    "name": "grpcio-tools",
-   "version": "1.85.1",
+   "version": "1.85.3",
    "target": "3.14 win-arm64",
    "runner": "windows-11-arm",
    "python": "3.14.10",
    "outcome": "failed",
-   "seconds": 31,
+   "seconds": 43,
    "wheel": null,
    "extensions": null,
    "import": null,
@@ -1240,23 +1423,23 @@
     "gcc",
     "cmake"
    ],
-   "date": "2026-11-15",
-   "log": "https://github.com/wheelgap/tracker/actions/runs/43743579096"
+   "date": "2026-11-22",
+   "log": "https://github.com/dianatofficial/tracker/actions/runs/45024431191"
   },
   {
    "schema": 1,
    "name": "grpcio-tools",
-   "version": "1.85.1",
+   "version": "1.85.3",
    "target": "3.14t linux-x86_64",
    "runner": "ubuntu-24.04",
    "python": "3.14.10t",
    "outcome": "built",
-   "seconds": 252,
+   "seconds": 363,
    "wheel": "cp314-cp314t-linux_x86_64",
    "extensions": 1,
-   "import": "ok",
-   "gil": "re-enabled",
-   "gil_module": "grpc_tools._protoc_compiler",
+   "import": "deps-failed",
+   "gil": null,
+   "gil_module": null,
    "reason": null,
    "excerpt": "",
    "toolchains": [
@@ -1265,18 +1448,18 @@
     "gcc",
     "cmake"
    ],
-   "date": "2026-11-15",
-   "log": "https://github.com/wheelgap/tracker/actions/runs/43743579096"
+   "date": "2026-11-22",
+   "log": "https://github.com/dianatofficial/tracker/actions/runs/45024431191"
   },
   {
    "schema": 1,
    "name": "grpcio-tools",
-   "version": "1.85.1",
+   "version": "1.85.3",
    "target": "3.14t win-arm64",
    "runner": "windows-11-arm",
    "python": "3.14.10t",
    "outcome": "failed",
-   "seconds": 17,
+   "seconds": 25,
    "wheel": null,
    "extensions": null,
    "import": null,
@@ -1290,18 +1473,18 @@
     "gcc",
     "cmake"
    ],
-   "date": "2026-11-15",
-   "log": "https://github.com/wheelgap/tracker/actions/runs/43743579096"
+   "date": "2026-11-22",
+   "log": "https://github.com/dianatofficial/tracker/actions/runs/45024431191"
   },
   {
    "schema": 1,
    "name": "h3",
-   "version": "4.5.0",
+   "version": "4.5.1",
    "target": "3.14 musl-aarch64",
    "runner": "ubuntu-24.04-arm",
    "python": "3.14.10",
    "outcome": "built",
-   "seconds": 26,
+   "seconds": 25,
    "wheel": "cp314-cp314-linux_aarch64",
    "extensions": 8,
    "import": "ok",
@@ -1312,8 +1495,8 @@
    "toolchains": [
     "gcc"
    ],
-   "date": "2026-11-15",
-   "log": "https://github.com/wheelgap/tracker/actions/runs/43743579096"
+   "date": "2026-11-22",
+   "log": "https://github.com/dianatofficial/tracker/actions/runs/45024431191"
   },
   {
    "schema": 1,
@@ -1342,13 +1525,63 @@
   },
   {
    "schema": 1,
+   "name": "h5py",
+   "version": "3.16.0",
+   "target": "3.15 linux-x86_64",
+   "runner": "ubuntu-24.04",
+   "python": "3.15.2",
+   "outcome": "failed",
+   "seconds": 7,
+   "wheel": null,
+   "extensions": null,
+   "import": null,
+   "gil": null,
+   "gil_module": null,
+   "reason": "compile error",
+   "excerpt": "error: libhdf5.so: cannot open shared object file: No such file or directory | note: This error originates from a subprocess, and is likely not a problem with pip. | ERROR: Failed building wheel for h5py | ERROR: Failed to build one or more wheels",
+   "toolchains": [
+    "rustc",
+    "cargo",
+    "gcc",
+    "cmake"
+   ],
+   "date": "2026-11-22",
+   "log": "https://github.com/dianatofficial/tracker/actions/runs/45024431191"
+  },
+  {
+   "schema": 1,
+   "name": "h5py",
+   "version": "3.16.0",
+   "target": "3.15 win-amd64",
+   "runner": "windows-2025",
+   "python": "3.15.2",
+   "outcome": "failed",
+   "seconds": 13,
+   "wheel": null,
+   "extensions": null,
+   "import": null,
+   "gil": null,
+   "gil_module": null,
+   "reason": "compile error",
+   "excerpt": "error: Could not find module 'hdf5.dll' (or one of its dependencies). Try using the full path with constructor syntax. | note: This error originates from a subprocess, and is likely not a problem with pip. | ERROR: Failed building wheel for h5py | ERROR: Failed to build one or more wheels",
+   "toolchains": [
+    "rustc",
+    "cargo",
+    "gcc",
+    "cmake"
+   ],
+   "date": "2026-11-22",
+   "log": "https://github.com/dianatofficial/tracker/actions/runs/45024431191"
+  },
+  {
+   "schema": 1,
    "name": "hypothesis",
-   "version": "6.170.15",
+   "version": "6.170.17",
    "target": "3.14t win-arm64",
    "runner": "windows-11-arm",
    "python": "3.14.10t",
    "outcome": "built",
-   "seconds": 55,
+   "seconds": 46,
    "wheel": "cp314-cp314t-win_arm64",
    "extensions": 1,
    "import": "ok",
@@ -1362,8 +1595,8 @@
     "gcc",
     "cmake"
    ],
-   "date": "2026-11-15",
-   "log": "https://github.com/wheelgap/tracker/actions/runs/43743579096"
+   "date": "2026-11-22",
+   "log": "https://github.com/dianatofficial/tracker/actions/runs/45024431191"
   },
   {
    "schema": 1,
@@ -1386,6 +1619,31 @@
    ],
    "date": "2026-11-15",
    "log": "https://github.com/wheelgap/tracker/actions/runs/43743579096"
+  },
+  {
+   "schema": 1,
+   "name": "jpype1",
+   "version": "1.7.1",
+   "target": "3.14 win-arm64",
+   "runner": "windows-11-arm",
+   "python": "3.14.10",
+   "outcome": "built",
+   "seconds": 109,
+   "wheel": "cp314-cp314-win_arm64",
+   "extensions": 1,
+   "import": "ok",
+   "gil": null,
+   "gil_module": null,
+   "reason": null,
+   "excerpt": "",
+   "toolchains": [
+    "rustc",
+    "cargo",
+    "gcc",
+    "cmake"
+   ],
+   "date": "2026-11-22",
+   "log": "https://github.com/dianatofficial/tracker/actions/runs/45024431191"
   },
   {
    "schema": 1,
@@ -1462,12 +1720,12 @@
   {
    "schema": 1,
    "name": "litellm",
-   "version": "1.109.1",
+   "version": "1.110.2",
    "target": "3.14 win-arm64",
    "runner": "windows-11-arm",
    "python": "3.14.10",
    "outcome": "built",
-   "seconds": 951,
+   "seconds": 1048,
    "wheel": "cp310-abi3-win_arm64",
    "extensions": 1,
    "import": "ok",
@@ -1481,18 +1739,18 @@
     "gcc",
     "cmake"
    ],
-   "date": "2026-11-15",
-   "log": "https://github.com/wheelgap/tracker/actions/runs/43743579096"
+   "date": "2026-11-22",
+   "log": "https://github.com/dianatofficial/tracker/actions/runs/45024431191"
   },
   {
    "schema": 1,
    "name": "litellm",
-   "version": "1.109.1",
+   "version": "1.110.2",
    "target": "3.14t linux-x86_64",
    "runner": "ubuntu-24.04",
    "python": "3.14.10t",
    "outcome": "built",
-   "seconds": 571,
+   "seconds": 683,
    "wheel": "cp314-cp314t-linux_x86_64",
    "extensions": 1,
    "import": "ok",
@@ -1506,18 +1764,18 @@
     "gcc",
     "cmake"
    ],
-   "date": "2026-11-15",
-   "log": "https://github.com/wheelgap/tracker/actions/runs/43743579096"
+   "date": "2026-11-22",
+   "log": "https://github.com/dianatofficial/tracker/actions/runs/45024431191"
   },
   {
    "schema": 1,
    "name": "litellm",
-   "version": "1.109.1",
+   "version": "1.110.2",
    "target": "3.14t win-arm64",
    "runner": "windows-11-arm",
    "python": "3.14.10t",
    "outcome": "built",
-   "seconds": 906,
+   "seconds": 1072,
    "wheel": "cp314-cp314t-win_arm64",
    "extensions": 1,
    "import": "ok",
@@ -1531,8 +1789,8 @@
     "gcc",
     "cmake"
    ],
-   "date": "2026-11-15",
-   "log": "https://github.com/wheelgap/tracker/actions/runs/43743579096"
+   "date": "2026-11-22",
+   "log": "https://github.com/dianatofficial/tracker/actions/runs/45024431191"
   },
   {
    "schema": 1,
@@ -1655,6 +1913,56 @@
   },
   {
    "schema": 1,
+   "name": "lz4",
+   "version": "4.4.5",
+   "target": "3.15 linux-x86_64",
+   "runner": "ubuntu-24.04",
+   "python": "3.15.2",
+   "outcome": "built",
+   "seconds": 8,
+   "wheel": "cp315-cp315-linux_x86_64",
+   "extensions": 3,
+   "import": "ok",
+   "gil": null,
+   "gil_module": null,
+   "reason": null,
+   "excerpt": "",
+   "toolchains": [
+    "rustc",
+    "cargo",
+    "gcc",
+    "cmake"
+   ],
+   "date": "2026-11-22",
+   "log": "https://github.com/dianatofficial/tracker/actions/runs/45024431191"
+  },
+  {
+   "schema": 1,
+   "name": "lz4",
+   "version": "4.4.5",
+   "target": "3.15 win-amd64",
+   "runner": "windows-2025",
+   "python": "3.15.2",
+   "outcome": "built",
+   "seconds": 26,
+   "wheel": "cp315-cp315-win_amd64",
+   "extensions": 3,
+   "import": "ok",
+   "gil": null,
+   "gil_module": null,
+   "reason": null,
+   "excerpt": "",
+   "toolchains": [
+    "rustc",
+    "cargo",
+    "gcc",
+    "cmake"
+   ],
+   "date": "2026-11-22",
+   "log": "https://github.com/dianatofficial/tracker/actions/runs/45024431191"
+  },
+  {
+   "schema": 1,
    "name": "matplotlib",
    "version": "3.11.2",
    "target": "3.14 musl-aarch64",
@@ -1678,12 +1986,12 @@
   {
    "schema": 1,
    "name": "ml-dtypes",
-   "version": "0.6.0",
+   "version": "0.7.0",
    "target": "3.14 musl-aarch64",
    "runner": "ubuntu-24.04-arm",
    "python": "3.14.10",
    "outcome": "built",
-   "seconds": 74,
+   "seconds": 56,
    "wheel": "cp314-cp314-linux_aarch64",
    "extensions": 1,
    "import": "ok",
@@ -1694,13 +2002,13 @@
    "toolchains": [
     "gcc"
    ],
-   "date": "2026-11-15",
-   "log": "https://github.com/wheelgap/tracker/actions/runs/43743579096"
+   "date": "2026-11-22",
+   "log": "https://github.com/dianatofficial/tracker/actions/runs/45024431191"
   },
   {
    "schema": 1,
    "name": "mysqlclient",
-   "version": "2.3.1",
+   "version": "2.3.2",
    "target": "3.14 musl-aarch64",
    "runner": "ubuntu-24.04-arm",
    "python": "3.14.10",
@@ -1716,13 +2024,13 @@
    "toolchains": [
     "gcc"
    ],
-   "date": "2026-11-15",
-   "log": "https://github.com/wheelgap/tracker/actions/runs/43743579096"
+   "date": "2026-11-22",
+   "log": "https://github.com/dianatofficial/tracker/actions/runs/45024431191"
   },
   {
    "schema": 1,
    "name": "mysqlclient",
-   "version": "2.3.1",
+   "version": "2.3.2",
    "target": "3.14t linux-x86_64",
    "runner": "ubuntu-24.04",
    "python": "3.14.10t",
@@ -1741,8 +2049,8 @@
     "gcc",
     "cmake"
    ],
-   "date": "2026-11-15",
-   "log": "https://github.com/wheelgap/tracker/actions/runs/43743579096"
+   "date": "2026-11-22",
+   "log": "https://github.com/dianatofficial/tracker/actions/runs/45024431191"
   },
   {
    "schema": 1,
@@ -1816,12 +2124,12 @@
   {
    "schema": 1,
    "name": "opencv-python",
-   "version": "5.0.0.93",
+   "version": "5.1.0.95",
    "target": "3.14 musl-aarch64",
    "runner": "ubuntu-24.04-arm",
    "python": "3.14.10",
    "outcome": "failed",
-   "seconds": 579,
+   "seconds": 816,
    "wheel": null,
    "extensions": null,
    "import": null,
@@ -1832,8 +2140,8 @@
    "toolchains": [
     "gcc"
    ],
-   "date": "2026-11-15",
-   "log": "https://github.com/wheelgap/tracker/actions/runs/43743579096"
+   "date": "2026-11-22",
+   "log": "https://github.com/dianatofficial/tracker/actions/runs/45024431191"
   },
   {
    "schema": 1,
@@ -1863,12 +2171,12 @@
   {
    "schema": 1,
    "name": "opencv-python",
-   "version": "5.0.0.93",
+   "version": "5.1.0.95",
    "target": "3.14t linux-x86_64",
    "runner": "ubuntu-24.04",
    "python": "3.14.10t",
    "outcome": "failed",
-   "seconds": 630,
+   "seconds": 650,
    "wheel": null,
    "extensions": null,
    "import": null,
@@ -1882,43 +2190,43 @@
     "gcc",
     "cmake"
    ],
-   "date": "2026-11-15",
-   "log": "https://github.com/wheelgap/tracker/actions/runs/43743579096"
+   "date": "2026-11-22",
+   "log": "https://github.com/dianatofficial/tracker/actions/runs/45024431191"
   },
   {
    "schema": 1,
    "name": "opencv-python",
-   "version": "5.0.0.93",
+   "version": "5.1.0.95",
    "target": "3.14t win-arm64",
    "runner": "windows-11-arm",
    "python": "3.14.10t",
-   "outcome": "failed",
-   "seconds": 737,
-   "wheel": null,
-   "extensions": null,
-   "import": null,
+   "outcome": "built",
+   "seconds": 838,
+   "wheel": "cp314-cp314t-win_arm64",
+   "extensions": 1,
+   "import": "failed",
    "gil": null,
    "gil_module": null,
-   "reason": "compile error",
-   "excerpt": "An error occurred while building with CMake. | note: This error originates from a subprocess, and is likely not a problem with pip. | ERROR: Failed building wheel for opencv-python | ERROR: Failed to build one or more wheels",
+   "reason": null,
+   "excerpt": "",
    "toolchains": [
     "rustc",
     "cargo",
     "gcc",
     "cmake"
    ],
-   "date": "2026-11-15",
-   "log": "https://github.com/wheelgap/tracker/actions/runs/43743579096"
+   "date": "2026-11-22",
+   "log": "https://github.com/dianatofficial/tracker/actions/runs/45024431191"
   },
   {
    "schema": 1,
    "name": "opencv-python-headless",
-   "version": "5.0.0.93",
+   "version": "5.1.0.95",
    "target": "3.14 musl-aarch64",
    "runner": "ubuntu-24.04-arm",
    "python": "3.14.10",
    "outcome": "failed",
-   "seconds": 568,
+   "seconds": 694,
    "wheel": null,
    "extensions": null,
    "import": null,
@@ -1929,8 +2237,8 @@
    "toolchains": [
     "gcc"
    ],
-   "date": "2026-11-15",
-   "log": "https://github.com/wheelgap/tracker/actions/runs/43743579096"
+   "date": "2026-11-22",
+   "log": "https://github.com/dianatofficial/tracker/actions/runs/45024431191"
   },
   {
    "schema": 1,
@@ -1960,34 +2268,9 @@
   {
    "schema": 1,
    "name": "opencv-python-headless",
-   "version": "5.0.0.93",
+   "version": "5.1.0.95",
    "target": "3.14t linux-x86_64",
    "runner": "ubuntu-24.04",
-   "python": "3.14.10t",
-   "outcome": "failed",
-   "seconds": 526,
-   "wheel": null,
-   "extensions": null,
-   "import": null,
-   "gil": null,
-   "gil_module": null,
-   "reason": "compile error",
-   "excerpt": "An error occurred while building with CMake. | note: This error originates from a subprocess, and is likely not a problem with pip. | ERROR: Failed building wheel for opencv-python-headless | ERROR: Failed to build one or more wheels",
-   "toolchains": [
-    "rustc",
-    "cargo",
-    "gcc",
-    "cmake"
-   ],
-   "date": "2026-11-15",
-   "log": "https://github.com/wheelgap/tracker/actions/runs/43743579096"
-  },
-  {
-   "schema": 1,
-   "name": "opencv-python-headless",
-   "version": "5.0.0.93",
-   "target": "3.14t win-arm64",
-   "runner": "windows-11-arm",
    "python": "3.14.10t",
    "outcome": "failed",
    "seconds": 743,
@@ -2004,8 +2287,33 @@
     "gcc",
     "cmake"
    ],
-   "date": "2026-11-15",
-   "log": "https://github.com/wheelgap/tracker/actions/runs/43743579096"
+   "date": "2026-11-22",
+   "log": "https://github.com/dianatofficial/tracker/actions/runs/45024431191"
+  },
+  {
+   "schema": 1,
+   "name": "opencv-python-headless",
+   "version": "5.1.0.95",
+   "target": "3.14t win-arm64",
+   "runner": "windows-11-arm",
+   "python": "3.14.10t",
+   "outcome": "built",
+   "seconds": 795,
+   "wheel": "cp314-cp314t-win_arm64",
+   "extensions": 1,
+   "import": "failed",
+   "gil": null,
+   "gil_module": null,
+   "reason": null,
+   "excerpt": "",
+   "toolchains": [
+    "rustc",
+    "cargo",
+    "gcc",
+    "cmake"
+   ],
+   "date": "2026-11-22",
+   "log": "https://github.com/dianatofficial/tracker/actions/runs/45024431191"
   },
   {
    "schema": 1,
@@ -2109,6 +2417,31 @@
   },
   {
    "schema": 1,
+   "name": "orjson",
+   "version": "3.13.0",
+   "target": "3.15 linux-x86_64",
+   "runner": "ubuntu-24.04",
+   "python": "3.15.2",
+   "outcome": "built",
+   "seconds": 25,
+   "wheel": "cp315-cp315-linux_x86_64",
+   "extensions": 1,
+   "import": "ok",
+   "gil": null,
+   "gil_module": null,
+   "reason": null,
+   "excerpt": "",
+   "toolchains": [
+    "rustc",
+    "cargo",
+    "gcc",
+    "cmake"
+   ],
+   "date": "2026-11-22",
+   "log": "https://github.com/dianatofficial/tracker/actions/runs/45024431191"
+  },
+  {
+   "schema": 1,
    "name": "ormsgpack",
    "version": "1.13.1",
    "target": "3.14t win-arm64",
@@ -2131,6 +2464,31 @@
    ],
    "date": "2026-11-15",
    "log": "https://github.com/wheelgap/tracker/actions/runs/43743579096"
+  },
+  {
+   "schema": 1,
+   "name": "oss2",
+   "version": "2.19.1",
+   "target": "3.14 win-arm64",
+   "runner": "windows-11-arm",
+   "python": "3.14.10",
+   "outcome": "built",
+   "seconds": 8,
+   "wheel": "py3-none-any",
+   "extensions": 0,
+   "import": "deps-failed",
+   "gil": null,
+   "gil_module": null,
+   "reason": null,
+   "excerpt": "",
+   "toolchains": [
+    "rustc",
+    "cargo",
+    "gcc",
+    "cmake"
+   ],
+   "date": "2026-11-22",
+   "log": "https://github.com/dianatofficial/tracker/actions/runs/45024431191"
   },
   {
    "schema": 1,
@@ -2300,6 +2658,31 @@
    ],
    "date": "2026-11-15",
    "log": "https://github.com/wheelgap/tracker/actions/runs/43743579096"
+  },
+  {
+   "schema": 1,
+   "name": "psycopg2",
+   "version": "2.9.13",
+   "target": "3.15 linux-x86_64",
+   "runner": "ubuntu-24.04",
+   "python": "3.15.2",
+   "outcome": "built",
+   "seconds": 11,
+   "wheel": "cp315-cp315-linux_x86_64",
+   "extensions": 1,
+   "import": "ok",
+   "gil": null,
+   "gil_module": null,
+   "reason": null,
+   "excerpt": "",
+   "toolchains": [
+    "rustc",
+    "cargo",
+    "gcc",
+    "cmake"
+   ],
+   "date": "2026-11-22",
+   "log": "https://github.com/dianatofficial/tracker/actions/runs/45024431191"
   },
   {
    "schema": 1,
@@ -2504,12 +2887,12 @@
   {
    "schema": 1,
    "name": "pymongo",
-   "version": "4.20.0",
+   "version": "4.20.1",
    "target": "3.14 musl-aarch64",
    "runner": "ubuntu-24.04-arm",
    "python": "3.14.10",
    "outcome": "built",
-   "seconds": 11,
+   "seconds": 10,
    "wheel": "cp314-cp314-linux_aarch64",
    "extensions": 2,
    "import": "ok",
@@ -2520,8 +2903,8 @@
    "toolchains": [
     "gcc"
    ],
-   "date": "2026-11-15",
-   "log": "https://github.com/wheelgap/tracker/actions/runs/43743579096"
+   "date": "2026-11-22",
+   "log": "https://github.com/dianatofficial/tracker/actions/runs/45024431191"
   },
   {
    "schema": 1,
@@ -2622,6 +3005,31 @@
   },
   {
    "schema": 1,
+   "name": "pyogrio",
+   "version": "0.13.0",
+   "target": "3.14 win-arm64",
+   "runner": "windows-11-arm",
+   "python": "3.14.10",
+   "outcome": "failed",
+   "seconds": 8,
+   "wheel": null,
+   "extensions": null,
+   "import": null,
+   "gil": null,
+   "gil_module": null,
+   "reason": "compile error",
+   "excerpt": "Preparing metadata (pyproject.toml) did not run successfully. | note: This error originates from a subprocess, and is likely not a problem with pip. | error: metadata-generation-failed | Encountered error while generating package metadata.",
+   "toolchains": [
+    "rustc",
+    "cargo",
+    "gcc",
+    "cmake"
+   ],
+   "date": "2026-11-22",
+   "log": "https://github.com/dianatofficial/tracker/actions/runs/45024431191"
+  },
+  {
+   "schema": 1,
    "name": "pyspark",
    "version": "4.3.0",
    "target": "3.14 musl-aarch64",
@@ -2716,6 +3124,128 @@
    ],
    "date": "2026-11-15",
    "log": "https://github.com/wheelgap/tracker/actions/runs/43743579096"
+  },
+  {
+   "schema": 1,
+   "name": "pyspark",
+   "version": "4.3.0",
+   "target": "3.15 linux-x86_64",
+   "runner": "ubuntu-24.04",
+   "python": "3.15.2",
+   "outcome": "built",
+   "seconds": 22,
+   "wheel": "py2.py3-none-any",
+   "extensions": 0,
+   "import": "ok",
+   "gil": null,
+   "gil_module": null,
+   "reason": null,
+   "excerpt": "",
+   "toolchains": [
+    "rustc",
+    "cargo",
+    "gcc",
+    "cmake"
+   ],
+   "date": "2026-11-22",
+   "log": "https://github.com/dianatofficial/tracker/actions/runs/45024431191"
+  },
+  {
+   "schema": 1,
+   "name": "pyspark",
+   "version": "4.3.0",
+   "target": "3.15 win-amd64",
+   "runner": "windows-2025",
+   "python": "3.15.2",
+   "outcome": "built",
+   "seconds": 45,
+   "wheel": "py2.py3-none-any",
+   "extensions": 0,
+   "import": "ok",
+   "gil": null,
+   "gil_module": null,
+   "reason": null,
+   "excerpt": "",
+   "toolchains": [
+    "rustc",
+    "cargo",
+    "gcc",
+    "cmake"
+   ],
+   "date": "2026-11-22",
+   "log": "https://github.com/dianatofficial/tracker/actions/runs/45024431191"
+  },
+  {
+   "schema": 1,
+   "name": "ratelimit",
+   "version": "2.2.1",
+   "target": "3.14 musl-aarch64",
+   "runner": "ubuntu-24.04-arm",
+   "python": "3.14.10",
+   "outcome": "built",
+   "seconds": 4,
+   "wheel": "py3-none-any",
+   "extensions": 0,
+   "import": "ok",
+   "gil": null,
+   "gil_module": null,
+   "reason": null,
+   "excerpt": "",
+   "toolchains": [
+    "gcc"
+   ],
+   "date": "2026-11-22",
+   "log": "https://github.com/dianatofficial/tracker/actions/runs/45024431191"
+  },
+  {
+   "schema": 1,
+   "name": "ratelimit",
+   "version": "2.2.1",
+   "target": "3.14 win-arm64",
+   "runner": "windows-11-arm",
+   "python": "3.14.10",
+   "outcome": "built",
+   "seconds": 8,
+   "wheel": "py3-none-any",
+   "extensions": 0,
+   "import": "ok",
+   "gil": null,
+   "gil_module": null,
+   "reason": null,
+   "excerpt": "",
+   "toolchains": [
+    "rustc",
+    "cargo",
+    "gcc",
+    "cmake"
+   ],
+   "date": "2026-11-22",
+   "log": "https://github.com/dianatofficial/tracker/actions/runs/45024431191"
+  },
+  {
+   "schema": 1,
+   "name": "ratelimit",
+   "version": "2.2.1",
+   "target": "3.14t linux-x86_64",
+   "runner": "ubuntu-24.04",
+   "python": "3.14.10t",
+   "outcome": "built",
+   "seconds": 3,
+   "wheel": "py3-none-any",
+   "extensions": 0,
+   "import": "ok",
+   "gil": null,
+   "gil_module": null,
+   "reason": null,
+   "excerpt": "",
+   "toolchains": [
+    "rustc",
+    "cargo",
+    "gcc",
+    "cmake"
+   ],
+   "date": "2026-11-22",
+   "log": "https://github.com/dianatofficial/tracker/actions/runs/45024431191"
   },
   {
    "schema": 1,
@@ -2841,6 +3371,31 @@
    ],
    "date": "2026-11-15",
    "log": "https://github.com/wheelgap/tracker/actions/runs/43743579096"
+  },
+  {
+   "schema": 1,
+   "name": "scikit-image",
+   "version": "0.26.0",
+   "target": "3.15 linux-x86_64",
+   "runner": "ubuntu-24.04",
+   "python": "3.15.2",
+   "outcome": "built",
+   "seconds": 239,
+   "wheel": "cp315-cp315-linux_x86_64",
+   "extensions": 54,
+   "import": "ok",
+   "gil": null,
+   "gil_module": null,
+   "reason": null,
+   "excerpt": "",
+   "toolchains": [
+    "rustc",
+    "cargo",
+    "gcc",
+    "cmake"
+   ],
+   "date": "2026-11-22",
+   "log": "https://github.com/dianatofficial/tracker/actions/runs/45024431191"
   },
   {
    "schema": 1,
@@ -3007,6 +3562,31 @@
    ],
    "date": "2026-11-15",
    "log": "https://github.com/wheelgap/tracker/actions/runs/43743579096"
+  },
+  {
+   "schema": 1,
+   "name": "soxr",
+   "version": "1.1.0",
+   "target": "3.14 win-arm64",
+   "runner": "windows-11-arm",
+   "python": "3.14.10",
+   "outcome": "built",
+   "seconds": 84,
+   "wheel": "cp312-abi3-win_arm64",
+   "extensions": 1,
+   "import": "ok",
+   "gil": null,
+   "gil_module": null,
+   "reason": null,
+   "excerpt": "",
+   "toolchains": [
+    "rustc",
+    "cargo",
+    "gcc",
+    "cmake"
+   ],
+   "date": "2026-11-22",
+   "log": "https://github.com/dianatofficial/tracker/actions/runs/45024431191"
   },
   {
    "schema": 1,
@@ -3354,6 +3934,56 @@
   },
   {
    "schema": 1,
+   "name": "thrift",
+   "version": "0.25.0",
+   "target": "3.15 linux-x86_64",
+   "runner": "ubuntu-24.04",
+   "python": "3.15.2",
+   "outcome": "built",
+   "seconds": 11,
+   "wheel": "cp315-cp315-linux_x86_64",
+   "extensions": 1,
+   "import": "ok",
+   "gil": null,
+   "gil_module": null,
+   "reason": null,
+   "excerpt": "",
+   "toolchains": [
+    "rustc",
+    "cargo",
+    "gcc",
+    "cmake"
+   ],
+   "date": "2026-11-22",
+   "log": "https://github.com/dianatofficial/tracker/actions/runs/45024431191"
+  },
+  {
+   "schema": 1,
+   "name": "thrift",
+   "version": "0.25.0",
+   "target": "3.15 win-amd64",
+   "runner": "windows-2025",
+   "python": "3.15.2",
+   "outcome": "built",
+   "seconds": 30,
+   "wheel": "cp315-cp315-win_amd64",
+   "extensions": 1,
+   "import": "ok",
+   "gil": null,
+   "gil_module": null,
+   "reason": null,
+   "excerpt": "",
+   "toolchains": [
+    "rustc",
+    "cargo",
+    "gcc",
+    "cmake"
+   ],
+   "date": "2026-11-22",
+   "log": "https://github.com/dianatofficial/tracker/actions/runs/45024431191"
+  },
+  {
+   "schema": 1,
    "name": "tiktoken",
    "version": "0.14.0",
    "target": "3.14 win-arm64",
@@ -3501,6 +4131,56 @@
   },
   {
    "schema": 1,
+   "name": "tree-sitter",
+   "version": "0.26.1",
+   "target": "3.15 linux-x86_64",
+   "runner": "ubuntu-24.04",
+   "python": "3.15.2",
+   "outcome": "built",
+   "seconds": 14,
+   "wheel": "cp315-cp315-linux_x86_64",
+   "extensions": 1,
+   "import": "ok",
+   "gil": null,
+   "gil_module": null,
+   "reason": null,
+   "excerpt": "",
+   "toolchains": [
+    "rustc",
+    "cargo",
+    "gcc",
+    "cmake"
+   ],
+   "date": "2026-11-22",
+   "log": "https://github.com/dianatofficial/tracker/actions/runs/45024431191"
+  },
+  {
+   "schema": 1,
+   "name": "tree-sitter",
+   "version": "0.26.1",
+   "target": "3.15 win-amd64",
+   "runner": "windows-2025",
+   "python": "3.15.2",
+   "outcome": "built",
+   "seconds": 34,
+   "wheel": "cp315-cp315-win_amd64",
+   "extensions": 1,
+   "import": "ok",
+   "gil": null,
+   "gil_module": null,
+   "reason": null,
+   "excerpt": "",
+   "toolchains": [
+    "rustc",
+    "cargo",
+    "gcc",
+    "cmake"
+   ],
+   "date": "2026-11-22",
+   "log": "https://github.com/dianatofficial/tracker/actions/runs/45024431191"
+  },
+  {
+   "schema": 1,
    "name": "uvloop",
    "version": "0.23.0",
    "target": "3.14 win-arm64",
@@ -3551,8 +4231,33 @@
   },
   {
    "schema": 1,
+   "name": "uvloop",
+   "version": "0.23.0",
+   "target": "3.15 win-amd64",
+   "runner": "windows-2025",
+   "python": "3.15.2",
+   "outcome": "failed",
+   "seconds": 8,
+   "wheel": null,
+   "extensions": null,
+   "import": null,
+   "gil": null,
+   "gil_module": null,
+   "reason": "unsupported platform",
+   "excerpt": "? Getting requirements to build wheel did not run successfully. | RuntimeError: uvloop does not support Windows at the moment | note: This error originates from a subprocess, and is likely not a problem with pip. | ERROR: Failed to build 'uvloop' when getting requirements to build wheel",
+   "toolchains": [
+    "rustc",
+    "cargo",
+    "gcc",
+    "cmake"
+   ],
+   "date": "2026-11-22",
+   "log": "https://github.com/dianatofficial/tracker/actions/runs/45024431191"
+  },
+  {
+   "schema": 1,
    "name": "watchdog",
-   "version": "7.1.0",
+   "version": "7.1.1",
    "target": "3.14 musl-aarch64",
    "runner": "ubuntu-24.04-arm",
    "python": "3.14.10",
@@ -3568,8 +4273,8 @@
    "toolchains": [
     "gcc"
    ],
-   "date": "2026-11-15",
-   "log": "https://github.com/wheelgap/tracker/actions/runs/43743579096"
+   "date": "2026-11-22",
+   "log": "https://github.com/dianatofficial/tracker/actions/runs/45024431191"
   },
   {
    "schema": 1,
@@ -3714,6 +4419,56 @@
    ],
    "date": "2026-11-15",
    "log": "https://github.com/wheelgap/tracker/actions/runs/43750127182"
+  },
+  {
+   "schema": 1,
+   "name": "zstandard",
+   "version": "0.25.0",
+   "target": "3.15 linux-x86_64",
+   "runner": "ubuntu-24.04",
+   "python": "3.15.2",
+   "outcome": "built",
+   "seconds": 66,
+   "wheel": "cp315-cp315-linux_x86_64",
+   "extensions": 2,
+   "import": "ok",
+   "gil": null,
+   "gil_module": null,
+   "reason": null,
+   "excerpt": "",
+   "toolchains": [
+    "rustc",
+    "cargo",
+    "gcc",
+    "cmake"
+   ],
+   "date": "2026-11-22",
+   "log": "https://github.com/dianatofficial/tracker/actions/runs/45024431191"
+  },
+  {
+   "schema": 1,
+   "name": "zstandard",
+   "version": "0.25.0",
+   "target": "3.15 win-amd64",
+   "runner": "windows-2025",
+   "python": "3.15.2",
+   "outcome": "built",
+   "seconds": 43,
+   "wheel": "cp315-cp315-win_amd64",
+   "extensions": 2,
+   "import": "ok",
+   "gil": null,
+   "gil_module": null,
+   "reason": null,
+   "excerpt": "",
+   "toolchains": [
+    "rustc",
+    "cargo",
+    "gcc",
+    "cmake"
+   ],
+   "date": "2026-11-22",
+   "log": "https://github.com/dianatofficial/tracker/actions/runs/45024431191"
   }
  ]
 }
