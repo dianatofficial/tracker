@@ -24,7 +24,14 @@ from packaging.utils import canonicalize_name
 from wheelgap import api, offline, origin, pypi, suggest_targets
 from wheelgap import suggest as release_suggest
 from wheelgap.check import Row, Status
-from wheelgap.sources import LOCKFILES, Package, Source, SourceError, load_file, pythons_outside_lock
+from wheelgap.sources import (
+    LOCKFILES,
+    Package,
+    Source,
+    SourceError,
+    load_file,
+    pythons_outside_lock,
+)
 from wheelgap.targets import DEFAULT_PLATFORMS, NEWEST_PYTHON, Target, TargetError
 
 # The lockfiles that list each package's files, so they can be checked without asking an index. The other
@@ -212,6 +219,10 @@ def _lookup_key(pkg: Package) -> str:
     return f"{name}=={pkg.version}" if pkg.version else name
 
 
+def _strip_root(text: str, root: str) -> str:
+    return text.replace(f"{root}/", "").replace(f"{root}\\", "")
+
+
 def needs(root: str, path: str) -> str:
     """The PyPI lookups checking `path` needs: every package wheelgap's pypi.fill_all() would look up, with its
     canonical name and pinned version or null, each once. A package that has to stay off pypi.org (see _private) is
@@ -234,7 +245,7 @@ def needs(root: str, path: str) -> str:
         inc = missing.relative_to(base).as_posix()
         return json.dumps({"error": f"{inc} (an include) isn't fetched yet", "kind": "include", "path": inc})
     except (SourceError, ValueError, OSError) as e:  # ValueError: a file that isn't valid TOML or JSON
-        return json.dumps({"error": str(e).replace(f"{root}/", ""), "kind": "source"})
+        return json.dumps({"error": _strip_root(str(e), root), "kind": "source"})
     lookups = {
         _lookup_key(pkg): {"name": canonicalize_name(pkg.name), "version": pkg.version or None}
         for pkg in _lookups(source)
@@ -291,7 +302,7 @@ def check(root: str, lockfile: str, options_json: str, lookups_json: str | None 
     try:
         source = load_file(path)
     except (SourceError, ValueError, OSError) as e:  # ValueError: a lockfile that isn't valid TOML or JSON
-        return json.dumps({"error": str(e).replace(f"{root}/", ""), "kind": "source"})
+        return json.dumps({"error": _strip_root(str(e), root), "kind": "source"})
     looked_up = path.name not in OFFLINE
     if looked_up:
         _fill_lookups(source, targets, json.loads(lookups_json) if lookups_json else {})
@@ -312,7 +323,7 @@ def check(root: str, lockfile: str, options_json: str, lookups_json: str | None 
         try:
             results, source, check_rows = api._check_lockfile(path, targets, online=False, offline=True)
         except (SourceError, ValueError, OSError) as e:  # ValueError: a lockfile that isn't valid TOML or JSON
-            return json.dumps({"error": str(e).replace(f"{root}/", ""), "kind": "source"})
+            return json.dumps({"error": _strip_root(str(e), root), "kind": "source"})
         outside = set(pythons_outside_lock(source, targets))
     # --suggest's rule (origin.known_pypi): only packages positively from PyPI are looked up there, so a private
     # package's name never goes to pypi.org, and a same-named PyPI project is never offered as its fix. A package

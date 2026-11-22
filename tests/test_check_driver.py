@@ -11,8 +11,8 @@ from pathlib import Path
 import pytest
 
 pytest.importorskip("wheelgap.suggest_targets")
-from wheelgap import origin
 from pypi_json import recorded_project, trim_json
+from wheelgap import origin
 
 SITE = Path(__file__).resolve().parent.parent / "site" / "check"
 sys.path.insert(0, str(SITE))

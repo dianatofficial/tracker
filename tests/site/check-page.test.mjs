@@ -282,3 +282,142 @@ test("the badge is a small static image on the page's own origin, offered as Mar
   assert.match(page, /\$\("copy-badge"\)\.onclick = \(e\) => copy\(e\.currentTarget, \$\("badge-md"\)\.textContent, "Badge Markdown copied"\);/);
   assert.doesNotMatch(page, /innerHTML/);
 });
+
+test("renderTable shows the links in the Fix cell and the package-name link for a package the tracker has, and neither for one it doesn't", () => {
+  const source = read("check.mjs");
+  const fn = (name) => {
+    const found = source.match(new RegExp(`^(?:async )?function ${name}\\(.*?^}$`, "ms"));
+    assert.ok(found, `${name} is in check.mjs`);
+    return found[0];
+  };
+  const elements = new Map();
+  const $ = (id) => {
+    if (!elements.has(id)) {
+      elements.set(id, {
+        textContent: "",
+        hidden: false,
+        children: [],
+        classList: { toggle() {}, remove() {}, add() {} },
+        closest: () => ({ classList: { toggle() {}, remove() {} } }),
+        replaceChildren: (...kids) => { elements.get(id).children = kids; },
+      });
+    }
+    return elements.get(id);
+  };
+  const el = (tag, attrs = {}, ...kids) => {
+    const text = attrs.text || "";
+    const flatKids = kids.flat().filter(Boolean);
+    const kidTexts = flatKids.map((k) => (typeof k === "string" ? k : k?.text || k?.textContent || "")).join("");
+    return {
+      tag,
+      attrs,
+      text: text + kidTexts,
+      textContent: text + kidTexts,
+      children: flatKids,
+    };
+  };
+
+  const state = {
+    python: "3.14",
+    platform: "linux-x86_64",
+    fixesDone: true,
+    showAll: false,
+    fixes: {
+      "has-tracker==1.0": { found: {}, loses: [] },
+      "no-tracker==2.0": { found: {}, loses: [] },
+    },
+    gapWheels: null,
+    lab: {
+      "has-tracker": { ok: true, builds: [], issues_url: "https://github.com/org/has-tracker/issues" },
+      "no-tracker": { ok: false, builds: [], issues_url: null },
+    },
+    result: {
+      lockfile: "uv.lock",
+      outside_lock: [],
+      targets: [{ python: "3.14", platform: "linux-x86_64", label: "3.14 linux-x86_64" }],
+      rows: [
+        {
+          name: "has-tracker",
+          version: "1.0",
+          gaps: ["3.14 linux-x86_64"],
+          statuses: { "3.14 linux-x86_64": "source" },
+          lookup: true,
+          here: ["3.14 linux-x86_64"],
+        },
+        {
+          name: "no-tracker",
+          version: "2.0",
+          gaps: ["3.14 linux-x86_64"],
+          statuses: { "3.14 linux-x86_64": "source" },
+          lookup: true,
+          here: ["3.14 linux-x86_64"],
+        },
+      ],
+    },
+  };
+
+  const NAMES = { "linux-x86_64": "Linux x86_64" };
+  const STATUS_TEXT = { source: "source" };
+  const LAB_SHORT = {};
+  const FIX_TEXT = { none: () => "no newer release has a wheel" };
+  const SHOWN = 60;
+
+  const runTable = new Function(
+    "$", "state", "el", "rowsFor", "fixFor", "gapWheelFixText", "canonicalName", "fixLinks", "labFor", "labVerdict", "gapWheelFor", "NAMES", "STATUS_TEXT", "LAB_SHORT", "FIX_TEXT", "SHOWN",
+    `
+    ${fn("renderTable")}
+    return renderTable;
+    `
+  )(
+    $, state, el,
+    checkLogic.rowsFor, checkLogic.fixFor, checkLogic.gapWheelFixText, checkLogic.canonicalName,
+    checkLogic.fixLinks, checkLogic.labFor, checkLogic.labVerdict, checkLogic.gapWheelFor,
+    NAMES, STATUS_TEXT, LAB_SHORT, FIX_TEXT, SHOWN
+  );
+
+  runTable();
+
+  const table = $("gap-table");
+  assert.equal(table.hidden, false);
+  const tbody = table.children[1];
+  assert.ok(tbody, "tbody was rendered");
+  const trs = tbody.children;
+  assert.equal(trs.length, 2);
+
+  // Row 1: has-tracker (tracker has the package)
+  const trHas = trs[0];
+  const pkgHas = trHas.children[0]; // td.pkg
+  const fixHas = trHas.children[2]; // td.fix
+
+  // Package name links to tracker page, and PyPI link is beside it
+  const pkgHasLinks = pkgHas.children.filter((c) => c.tag === "a");
+  assert.equal(pkgHasLinks.length, 2);
+  assert.equal(pkgHasLinks[0].attrs.href, "../p/has-tracker/");
+  assert.equal(pkgHasLinks[0].text, "has-tracker");
+  assert.equal(pkgHasLinks[1].attrs.href, "https://pypi.org/project/has-tracker/1.0");
+  assert.equal(pkgHasLinks[1].text, "PyPI");
+
+  // Fix cell has "coverage and build results" and "ask the maintainers"
+  const fixHasLinks = fixHas.children.flatMap((c) => c.children || []).filter((c) => c.tag === "a");
+  assert.equal(fixHasLinks.length, 2);
+  assert.equal(fixHasLinks[0].attrs.href, "../p/has-tracker/");
+  assert.equal(fixHasLinks[0].text, "coverage and build results");
+  assert.equal(fixHasLinks[1].attrs.href, "https://github.com/org/has-tracker/issues");
+  assert.equal(fixHasLinks[1].text, "ask the maintainers");
+  assert.equal(fixHasLinks[1].attrs.rel, "noopener nofollow");
+
+  // Row 2: no-tracker (tracker does NOT have the package)
+  const trNo = trs[1];
+  const pkgNo = trNo.children[0]; // td.pkg
+  const fixNo = trNo.children[2]; // td.fix
+
+  // Package name links directly to PyPI, no separate tracker link, no PyPI link beside it
+  const pkgNoLinks = pkgNo.children.filter((c) => c.tag === "a");
+  assert.equal(pkgNoLinks.length, 1);
+  assert.equal(pkgNoLinks[0].attrs.href, "https://pypi.org/project/no-tracker/2.0");
+  assert.equal(pkgNoLinks[0].text, "no-tracker");
+
+  // Fix cell has neither link
+  const fixNoLinks = fixNo.children.flatMap((c) => c.children || []).filter((c) => c.tag === "a");
+  assert.equal(fixNoLinks.length, 0);
+});

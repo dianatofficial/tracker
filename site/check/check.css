@@ -41,7 +41,12 @@
 .gap-table td.pkg { font: 600 0.88rem var(--mono); white-space: nowrap; }
 .gap-table td.pkg a { color: var(--text); text-decoration: none; }
 .gap-table td.pkg a:hover { color: var(--accent); }
+.gap-table td.pkg a.pypi { font-size: 0.72rem; font-weight: normal; margin-left: 6px; color: var(--muted); text-decoration: underline; }
+.gap-table td.pkg a.pypi:hover { color: var(--accent); }
 .gap-table td.fix { font: 0.82rem var(--mono); white-space: nowrap; }
+.gap-table td.fix .fix-link { display: block; margin-top: 3px; font-size: 0.72rem; }
+.gap-table td.fix .fix-link a { color: var(--muted); text-decoration: underline; }
+.gap-table td.fix .fix-link a:hover { color: var(--accent); }
 .fix-all { color: var(--wheel); font-weight: 600; }
 .fix-some { color: var(--source); }
 .fix-none, .fix-pending { color: var(--muted); }

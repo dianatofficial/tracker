@@ -264,8 +264,51 @@ export function gapWheelFixText(row, gapWheels) {
   return filled === row.gaps.length ? "gap wheel available" : `gap wheel for ${filled} of ${row.gaps.length} gaps`;
 }
 
+// Validate an issue tracker URL: an https:// URL on a host, printable ASCII only, no spaces or control chars, and no userinfo (@).
+export function validIssuesUrl(url) {
+  if (typeof url !== "string") return false;
+  if (!/^[\x21-\x7E]+$/.test(url) || url.includes(" ")) return false;
+  try {
+    const u = new URL(url);
+    return u.protocol === "https:" && Boolean(u.hostname) && u.hostname.includes(".") && !u.username && !u.password && !u.host.includes("@");
+  } catch {
+    return false;
+  }
+}
+
+// The links to show under Fix text: coverage and build results on the tracker, and maintainer issue tracker.
+export function fixLinks(arg1, arg2, trackerPkg = null, gapWheels = null) {
+  let row, f;
+  if (arg1 && typeof arg1 === "object" && "kind" in arg1) {
+    f = arg1;
+    row = arg2;
+  } else {
+    row = arg1;
+    f = arg2;
+  }
+  if (!row || !f) return [];
+  if (row.lookup === false || f.kind === "private" || f.kind === "pending" || f.kind === "unchecked") return [];
+  if (f.kind !== "none" && f.kind !== "loses") return [];
+  if (gapWheels && gapWheelFixText(row, gapWheels)) return [];
+
+  const links = [];
+  const name = canonicalName(row.name || "");
+  const hasTracker = Boolean(trackerPkg && (trackerPkg.ok ?? (trackerPkg.builds !== undefined)));
+  if (hasTracker && name) {
+    links.push({ text: "coverage and build results", href: `../p/${name}/` });
+  }
+
+  const issuesUrl = trackerPkg?.issues_url || (typeof trackerPkg === "string" ? trackerPkg : null);
+  if (issuesUrl && validIssuesUrl(issuesUrl)) {
+    links.push({ text: "ask the maintainers", href: issuesUrl, rel: "noopener nofollow" });
+  }
+  return links;
+}
+export const rowLinks = fixLinks;
+export const linksFor = fixLinks;
+
 // A prompt to paste into Claude Code (or any coding agent): the gaps, the bumps that fix them, and how to confirm.
-export function fixPrompt(repoName, result, fixes, pythons, platforms, gapWheels = null) {
+export function fixPrompt(repoName, result, fixes, pythons, platforms, gapWheels = null, tracker = {}) {
   const groups = { all: [], some: [], loses: [], none: [], private: [], pending: [] };
   for (const r of result.rows) {
     const f = fixFor(r, fixes);
@@ -273,7 +316,13 @@ export function fixPrompt(repoName, result, fixes, pythons, platforms, gapWheels
     const gaps = r.gaps.join(", ");
     if (f.kind === "all") groups.all.push(`- ${r.name} ${r.version} -> ${f.text}`);
     else if (f.kind === "some") groups.some.push(`- ${r.name} ${r.version} -> ${f.text} (gaps on ${gaps})`);
-    else groups[f.kind].push(`- ${r.name} ${r.version}: ${gaps}`);
+    else if (f.kind === "none" || f.kind === "loses") {
+      const pkg = tracker?.[canonicalName(r.name)] ?? tracker?.[r.name];
+      const issuesUrl = typeof pkg === "string" ? pkg : pkg?.issues_url;
+      const validUrl = issuesUrl && validIssuesUrl(issuesUrl) ? issuesUrl : null;
+      const ask = validUrl ? ` (ask the maintainers: ${validUrl})` : "";
+      groups[f.kind].push(`- ${r.name} ${r.version}: ${gaps}${ask}`);
+    } else groups[f.kind].push(`- ${r.name} ${r.version}: ${gaps}`);
   }
   const lines = [
     `In ${repoName}, wheelgap found dependencies in ${result.lockfile} with no prebuilt wheel for some of the platforms we target (Python ${sortPythons(pythons).join(", ")} on ${platforms.join(", ")}), so they'd be compiled from source or fail to install.`,
@@ -357,6 +406,7 @@ export function canonicalName(name) {
 // The lab result for exactly this release on this target (label like "3.14t win-arm64"), or null: a result for
 // another version says nothing about the pinned one.
 export function labFor(builds, version, label) {
-  if (!Array.isArray(builds)) return null;
-  return builds.find((b) => b && b.target === label && b.version === version) ?? null;
+  const list = Array.isArray(builds) ? builds : builds?.builds;
+  if (!Array.isArray(list)) return null;
+  return list.find((b) => b && b.target === label && b.version === version) ?? null;
 }

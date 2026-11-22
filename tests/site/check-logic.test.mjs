@@ -5,6 +5,7 @@ import {
   parseRepo, rawUrl, pickLockfile, toQuery, fromQuery, sortPythons, freeThreaded, fixFor, rowsFor, headline,
   cliCommand, fixPrompt, verdictText, nextSteps, validRef, labVerdict, labFor, canonicalName, gapWheelFor,
   gapWheelFixText, withoutUnreadable, unreadableReason, tileText, missedText, badgeMarkdown, trimProject, trimReleases,
+  fixLinks, validIssuesUrl, rowLinks,
 } from "../../site/check/check-logic.mjs";
 
 test("PyPI trimming keeps the pinned consumer's fields without changing the input", () => {
@@ -320,4 +321,71 @@ test("the copy prompt includes only the driver's gap wheel instructions", () => 
   const prompt = fixPrompt("o/r", result, {}, ["3.13"], ["win-amd64"], gapWheels);
   assert.match(prompt, /unofficial, built by wheelgap/);
   assert.ok(prompt.includes(gapWheels.text));
+});
+
+test("fixLinks picks a row's links under Fix: none, loses, gap wheel, private, and invalid issues URLs", () => {
+  const rNone = { name: "demo-pkg", version: "1.0", gaps: ["3.14 linux-x86_64"], lookup: true };
+  const fNone = { kind: "none", text: "no newer release has a wheel" };
+
+  // 1. none with issues_url:
+  const withIssues = fixLinks(rNone, fNone, { ok: true, issues_url: "https://github.com/org/demo/issues" });
+  assert.deepEqual(withIssues, [
+    { text: "coverage and build results", href: "../p/demo-pkg/" },
+    { text: "ask the maintainers", href: "https://github.com/org/demo/issues", rel: "noopener nofollow" },
+  ]);
+
+  // none without issues_url:
+  const withoutIssues = fixLinks(rNone, fNone, { ok: true });
+  assert.deepEqual(withoutIssues, [
+    { text: "coverage and build results", href: "../p/demo-pkg/" },
+  ]);
+
+  // 2. loses:
+  const fLoses = { kind: "loses", text: "only releases that drop a wheel elsewhere" };
+  const losesLinks = fixLinks(rNone, fLoses, { ok: true, issues_url: "https://github.com/org/demo/issues" });
+  assert.deepEqual(losesLinks, [
+    { text: "coverage and build results", href: "../p/demo-pkg/" },
+    { text: "ask the maintainers", href: "https://github.com/org/demo/issues", rel: "noopener nofollow" },
+  ]);
+
+  // 3. a row a gap wheel fills (no links needed):
+  const gapWheels = {
+    cells: [{ name: "demo-pkg", version: "1.0", target: "3.14 linux-x86_64" }],
+    text: "gap-wheels",
+    unofficial: "unofficial",
+  };
+  assert.deepEqual(fixLinks(rNone, fNone, { ok: true, issues_url: "https://github.com/org/demo/issues" }, gapWheels), []);
+
+  // 4. private (none):
+  const rPriv = { name: "corp-lib", version: "1.0", gaps: ["3.14 linux-x86_64"], lookup: false };
+  const fPriv = { kind: "private", text: "not looked up" };
+  assert.deepEqual(fixLinks(rPriv, fPriv, { ok: true, issues_url: "https://github.com/org/demo/issues" }), []);
+
+  // 5. an issues_url that isn't https or is on an unknown host (dropped):
+  const notHttps = fixLinks(rNone, fNone, { ok: true, issues_url: "http://insecure.example/issues" });
+  assert.deepEqual(notHttps, [{ text: "coverage and build results", href: "../p/demo-pkg/" }]);
+
+  const noHost = fixLinks(rNone, fNone, { ok: true, issues_url: "https:///issues" });
+  assert.deepEqual(noHost, [{ text: "coverage and build results", href: "../p/demo-pkg/" }]);
+
+  const userinfo = fixLinks(rNone, fNone, { ok: true, issues_url: "https://github.com@evil.example/issues" });
+  assert.deepEqual(userinfo, [{ text: "coverage and build results", href: "../p/demo-pkg/" }]);
+
+  const controlChar = fixLinks(rNone, fNone, { ok: true, issues_url: "https://github.com/org/demo/issues\n" });
+  assert.deepEqual(controlChar, [{ text: "coverage and build results", href: "../p/demo-pkg/" }]);
+
+  // rowLinks alias works the same
+  assert.deepEqual(rowLinks(fNone, rNone, { ok: true }), [{ text: "coverage and build results", href: "../p/demo-pkg/" }]);
+
+  // fixPrompt includes the issue tracker URL for none and loses groups when known
+  const prompt = fixPrompt(
+    "o/r",
+    { lockfile: "uv.lock", rows: [rNone] },
+    { "demo-pkg==1.0": { found: {}, loses: [] } },
+    ["3.14"],
+    ["linux-x86_64"],
+    null,
+    { "demo-pkg": { issues_url: "https://github.com/org/demo/issues" } }
+  );
+  assert.match(prompt, /- demo-pkg 1\.0: 3\.14 linux-x86_64 \(ask the maintainers: https:\/\/github\.com\/org\/demo\/issues\)/);
 });
