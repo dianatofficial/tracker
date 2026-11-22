@@ -5,7 +5,7 @@ import {
   parseRepo, rawUrl, pickLockfile, toQuery, fromQuery, sortPythons, freeThreaded, fixFor, rowsFor, headline,
   cliCommand, fixPrompt, verdictText, nextSteps, validRef, labVerdict, labFor, canonicalName, gapWheelFor,
   gapWheelFixText, withoutUnreadable, unreadableReason, tileText, missedText, badgeMarkdown, trimProject, trimReleases,
-  fixLinks, validIssuesUrl, rowLinks,
+  fixLinks, validIssuesUrl,
 } from "../../site/check/check-logic.mjs";
 
 test("PyPI trimming keeps the pinned consumer's fields without changing the input", () => {
@@ -374,8 +374,9 @@ test("fixLinks picks a row's links under Fix: none, loses, gap wheel, private, a
   const controlChar = fixLinks(rNone, fNone, { ok: true, issues_url: "https://github.com/org/demo/issues\n" });
   assert.deepEqual(controlChar, [{ text: "coverage and build results", href: "../p/demo-pkg/" }]);
 
-  // rowLinks alias works the same
-  assert.deepEqual(rowLinks(fNone, rNone, { ok: true }), [{ text: "coverage and build results", href: "../p/demo-pkg/" }]);
+  // A package the tracker doesn't have, or no answer yet: no links (loadLab() keeps no issues_url for it).
+  assert.deepEqual(fixLinks(rNone, fNone, { ok: false, builds: [], issues_url: null }), []);
+  assert.deepEqual(fixLinks(rNone, fNone, null), []);
 
   // fixPrompt includes the issue tracker URL for none and loses groups when known
   const prompt = fixPrompt(
@@ -389,3 +390,18 @@ test("fixLinks picks a row's links under Fix: none, loses, gap wheel, private, a
   );
   assert.match(prompt, /- demo-pkg 1\.0: 3\.14 linux-x86_64 \(ask the maintainers: https:\/\/github\.com\/org\/demo\/issues\)/);
 });
+
+test("validIssuesUrl makes the package page's valid_issues_url() check, host by any name", () => {
+  // scripts/build_pages.py's valid_issues_url() has no list of hosts: any https URL with a host that isn't user@,
+  // with printable ASCII only. The page links what the package page links, and nothing it refuses.
+  for (const yes of ["https://github.com/o/r/issues", "https://bugs.launchpad.net/x", "https://jira.example.org/browse/X",
+    "HTTPS://gitlab.com/o/r/-/issues", "https://localhost/issues", "https://github.com:443/o/r/issues?q=is%3Aopen#top"]) {
+    assert.equal(validIssuesUrl(yes), true, yes);
+  }
+  for (const no of ["http://github.com/o/r/issues", "https:///issues", "https://", "https://a@b.example/", "https://@b.example/",
+    "https://:@b.example/", "https://b.example/ x", "https://b.example/\u00e9", "https://b.example/\x1b[2J", "javascript:alert(1)",
+    "//github.com/o/r", "", null, undefined, 42]) {
+    assert.equal(validIssuesUrl(no), false, String(no));
+  }
+});
+

@@ -382,7 +382,7 @@ function renderTable() {
     : rows.length
       ? `${rows.length} package${rows.length === 1 ? "" : "s"}. The fix column names the lowest newer release with a wheel for every gap that has one, without losing a wheel elsewhere.`
       : "None: every package installs from a wheel here.";
-  const shownLab = rows.some((row) => labels.some((t) => row.statuses[t.label] === "source" && labFor(state.lab[canonicalName(row.name)], row.version, t.label)));
+  const shownLab = rows.some((row) => labels.some((t) => row.statuses[t.label] === "source" && labFor(state.lab[canonicalName(row.name)]?.builds, row.version, t.label)));
   if (shownLab) {
     $("gaps-note").textContent += " Under a source build, what the tracker's build lab saw building that release from source on GitHub's runners, which have compilers and many system libraries preinstalled (hover for details).";
   }
@@ -430,7 +430,7 @@ function renderTable() {
       ...labels.map((t) => {
         const s = row.statuses[t.label];
         if (s === "n/a") return el("td", {}, el("span", { class: "na", text: "–", title: "not installed on this target" }));
-        const lab = s === "source" ? labFor(labPkg, row.version, t.label) : null;
+        const lab = s === "source" ? labFor(labPkg?.builds, row.version, t.label) : null;
         const v = lab ? labVerdict(lab) : null;
         return el("td", {}, el("span", { class: `status s-${s}`, text: STATUS_TEXT[s] || s }),
           v ? el("span", { class: `lab lab-${v.kind}`, text: LAB_SHORT[v.kind], title: `Build lab, ${lab.date} on ${lab.runner}: ${v.text}` }) : null,
