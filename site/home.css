@@ -414,6 +414,11 @@ button, input, select {
   font-size: 0.86rem;
 }
 
+/* The summary's links sit in faint text, so they're underlined rather than told apart by colour alone. */
+#week-summary a {
+  text-decoration: underline;
+}
+
 .agreement-banner {
   margin-top: 8px;
   padding: 8px 12px;

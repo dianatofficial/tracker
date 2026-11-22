@@ -1,6 +1,9 @@
+import io
 import json
+import re
 import tempfile
 import unittest
+from contextlib import redirect_stdout
 from pathlib import Path
 
 from scripts import build_gap_index
@@ -72,3 +75,90 @@ class Index(unittest.TestCase):
             self.assertEqual(build_gap_index.build(tmp / "gap-wheels.json", tmp / "site"), 1, body)
             self.assertFalse((tmp / "site/wheels/simple").exists())
             self.assertFalse((tmp / "site/data/gap-wheels.json").exists())
+
+    def test_status_filters_withdrawn_wheels_and_keeps_in_index_and_yanked(self):
+        tmp = Path(tempfile.mkdtemp())
+        wheels = [
+            wheel(name="tiktoken", file="tiktoken-0.14.0-cp314-cp314-win_arm64.whl"),
+            wheel(name="tiktoken", file="tiktoken-0.13.0-cp314-cp314-win_arm64.whl"),
+            wheel(name="tiktoken", file="tiktoken-0.12.0-cp314-cp314-win_arm64.whl"),
+            wheel(name="gonepkg", file="gonepkg-1.0.0-cp314-cp314-win_arm64.whl"),
+        ]
+        status = {
+            "schema": 1,
+            "wheels": [
+                {"project": "tiktoken", "wheel": "tiktoken-0.14.0-cp314-cp314-win_arm64.whl", "status": "in-index"},
+                {"project": "tiktoken", "wheel": "tiktoken-0.13.0-cp314-cp314-win_arm64.whl", "status": "yanked", "yank_reason": "broken <build>"},
+                {"project": "tiktoken", "wheel": "tiktoken-0.12.0-cp314-cp314-win_arm64.whl", "status": "withdrawn-pypi-has-wheel"},
+                {"project": "gonepkg", "wheel": "gonepkg-1.0.0-cp314-cp314-win_arm64.whl", "status": "withdrawn-pypi-has-wheel"},
+            ],
+        }
+        (tmp / "gap-wheels.json").write_text(json.dumps({"schema": 1, "wheels": wheels}))
+        (tmp / "status.json").write_text(json.dumps(status))
+        self.assertEqual(build_gap_index.build(tmp / "gap-wheels.json", tmp / "site", tmp / "status.json"), 0)
+
+        root = (tmp / "site/wheels/simple/index.html").read_text()
+        self.assertIn('<a href="tiktoken/">tiktoken</a>', root)
+        self.assertNotIn("gonepkg", root)
+        self.assertFalse((tmp / "site/wheels/simple/gonepkg").exists())
+
+        page = (tmp / "site/wheels/simple/tiktoken/index.html").read_text()
+        self.assertIn("tiktoken-0.14.0-cp314-cp314-win_arm64.whl", page)
+        self.assertIn("tiktoken-0.13.0-cp314-cp314-win_arm64.whl", page)
+        self.assertNotIn("tiktoken-0.12.0-cp314-cp314-win_arm64.whl", page)
+        # A yanked wheel is marked as wheelgap/wheels' own index marks it (PEP 592), so pip skips it there too unless
+        # a requirement pins that exact version; an in-index one isn't.
+        links = {re.search(r">([^<>]+\.whl)</a>", line).group(1): line for line in page.splitlines() if "<a href=" in line}
+        self.assertIn(' data-yanked="broken &lt;build&gt;">', links["tiktoken-0.13.0-cp314-cp314-win_arm64.whl"])
+        self.assertNotIn("data-yanked", links["tiktoken-0.14.0-cp314-cp314-win_arm64.whl"])
+
+    def test_a_yanked_wheel_with_no_reason_is_marked_with_an_empty_one(self):
+        tmp = Path(tempfile.mkdtemp())
+        (tmp / "gap-wheels.json").write_text(json.dumps({"schema": 1, "wheels": [wheel()]}))
+        (tmp / "status.json").write_text(json.dumps({"schema": 1, "wheels": [
+            {"project": "tiktoken", "wheel": "tiktoken-0.14.0-cp314-cp314-win_arm64.whl", "status": "yanked", "yank_reason": None},
+        ]}))
+        self.assertEqual(build_gap_index.build(tmp / "gap-wheels.json", tmp / "site", tmp / "status.json"), 0)
+        page = (tmp / "site/wheels/simple/tiktoken/index.html").read_text()
+        self.assertIn('win_arm64.whl#sha256=', page)
+        self.assertIn(' data-yanked="">tiktoken-0.14.0-cp314-cp314-win_arm64.whl</a>', page)
+        # The transparency record is copied as it came, with no marker added to it.
+        self.assertNotIn("_yanked", (tmp / "site/data/gap-wheels.json").read_text())
+
+    def test_missing_or_malformed_status_warns_and_matches_legacy_output(self):
+        wheels = [wheel()]
+        baseline = self.build(wheels)
+        for bad in (None, "{not json", json.dumps({"schema": 2, "wheels": []}), json.dumps({"schema": 1, "wheels": [{"project": "tiktoken"}]})):
+            tmp = Path(tempfile.mkdtemp())
+            (tmp / "gap-wheels.json").write_text(json.dumps({"schema": 1, "wheels": wheels}))
+            status_path = tmp / "status.json"
+            if bad is not None:
+                status_path.write_text(bad)
+            buf = io.StringIO()
+            with redirect_stdout(buf):
+                self.assertEqual(build_gap_index.build(tmp / "gap-wheels.json", tmp / "site", status_path), 0)
+            self.assertIn("::warning::status.json is missing or unusable", buf.getvalue())
+            self.assertEqual(
+                (tmp / "site/wheels/simple/index.html").read_bytes(),
+                (baseline / "wheels/simple/index.html").read_bytes(),
+            )
+            self.assertEqual(
+                (tmp / "site/wheels/simple/tiktoken/index.html").read_bytes(),
+                (baseline / "wheels/simple/tiktoken/index.html").read_bytes(),
+            )
+
+    def test_all_in_index_status_produces_byte_identical_output(self):
+        wheels = [wheel(), wheel(name="Zope.Interface", file="zope_interface-8.7-cp314-cp314-win_arm64.whl")]
+        without = self.build(wheels)
+        tmp = Path(tempfile.mkdtemp())
+        (tmp / "gap-wheels.json").write_text(json.dumps({"schema": 1, "wheels": wheels}))
+        (tmp / "status.json").write_text(json.dumps({
+            "schema": 1,
+            "wheels": [
+                {"project": "tiktoken", "wheel": "tiktoken-0.14.0-cp314-cp314-win_arm64.whl", "status": "in-index"},
+                {"project": "Zope.Interface", "wheel": "zope_interface-8.7-cp314-cp314-win_arm64.whl", "status": "in-index"},
+            ],
+        }))
+        self.assertEqual(build_gap_index.build(tmp / "gap-wheels.json", tmp / "site", tmp / "status.json"), 0)
+        for rel in ("wheels/simple/index.html", "wheels/simple/tiktoken/index.html", "wheels/simple/zope-interface/index.html"):
+            self.assertEqual((tmp / "site" / rel).read_bytes(), (without / rel).read_bytes())

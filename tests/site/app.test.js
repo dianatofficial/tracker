@@ -1439,3 +1439,94 @@ test("index.html hides the decorative symbols and names the theme toggle as a to
   assert.match(toggle, /aria-label="Dark theme"/);
   assert.match(toggle, /aria-pressed="false"/);
 });
+
+test("renderWeekSummary builds links, handles an empty week, and keeps '<' as plain text (#210)", () => {
+  const html = fs.readFileSync(path.join(SITE, "index.html"), "utf8");
+  assert.match(html, /<p class="meta" id="meta">[^<]*<\/p>\s*<p class="meta" id="week-summary" hidden><\/p>/);
+
+  const logicSrc = fs.readFileSync(path.join(SITE, "logic.js"), "utf8");
+  const appSrc = fs.readFileSync(path.join(SITE, "app.js"), "utf8");
+  const fnSrc = appSrc.match(/^function renderWeekSummary\(.*?^}$/ms);
+  assert.ok(fnSrc, "renderWeekSummary is in app.js");
+
+  const run = (changes, drops, packages = [], generated = "2026-11-21T00:00:00Z") => {
+    const el = {
+      hidden: false,
+      textContent: "",
+      nodes: [],
+      append(...items) { this.nodes.push(...items); },
+    };
+    const ctx = vm.createContext({
+      Date, Math, Number, String, Array, Object, Set, Map,
+      $: (id) => (id === "week-summary" ? el : null),
+      fmt: (n) => String(n),
+      state: { data: { generated, packages } },
+      document: {
+        createElement: (tag) => ({ tagName: tag, href: "", textContent: "" }),
+      },
+    });
+    vm.runInContext(logicSrc, ctx);
+    vm.runInContext(fnSrc[0], ctx);
+    ctx.renderWeekSummary(changes, drops);
+    return el;
+  };
+
+  // Gains + drops with a '<' in a name: links to new/ and drops/, name kept as plain text node.
+  const active = run(
+    [{ date: "2026-11-21", gained: ["a<b", "numpy", "x", "y"].map((name) => ({ name, target: "3.15 win-amd64" })) }],
+    { schema: 1, drops: [{ date: "2026-11-20", name: "databricks", target: "3.13 pyodide" }] },
+    [{ name: "numpy", rank: 1 }, { name: "a<b", rank: 2 }, { name: "x", rank: 3 }, { name: "y", rank: 4 }],
+  );
+  assert.equal(active.hidden, false);
+  const links = active.nodes.filter((n) => typeof n === "object");
+  assert.deepEqual(links.map((a) => [a.href, a.textContent]), [
+    ["new/", "gained a wheel"],
+    ["drops/", "dropped a platform"],
+  ]);
+  const fullText = active.nodes.map((n) => (typeof n === "string" ? n : n.textContent)).join("");
+  assert.equal(fullText, "This week: 4 packages gained a wheel (numpy, a<b and x among them) and 1 dropped a platform.");
+
+  // Empty week: shown with "No wheels gained or platforms dropped in the last 7 days."
+  const empty = run([{ date: "2026-11-01", gained: [{ name: "old", target: "3.15 win-amd64" }] }], { schema: 1, drops: [] });
+  assert.equal(empty.hidden, false);
+  assert.equal(empty.textContent, "No wheels gained or platforms dropped in the last 7 days.");
+
+  // Missing file: hidden.
+  const missing = run(null, { schema: 1, drops: [] });
+  assert.equal(missing.hidden, true);
+  const missingDrops = run([], null);
+  assert.equal(missingDrops.hidden, true);
+
+  // No scan date to count from: hidden, not "No wheels gained".
+  const undated = run([{ date: "2026-11-21", gained: [{ name: "numpy", target: "3.15 win-amd64" }] }], { schema: 1, drops: [] }, [], null);
+  assert.equal(undated.hidden, true);
+
+  const text = (el) => el.nodes.map((n) => (typeof n === "string" ? n : n.textContent)).join("");
+
+  // One package: named without "among them", since it's the whole list.
+  const one = run(
+    [{ date: "2026-11-21", gained: [{ name: "numpy", target: "3.15 win-amd64" }] }],
+    { schema: 1, drops: [] },
+    [{ name: "numpy", rank: 1 }],
+  );
+  assert.equal(text(one), "This week: 1 package gained a wheel.");
+
+  // More packages than names: "among them".
+  const four = run(
+    [{ date: "2026-11-21", gained: ["a", "b", "c", "d"].map((name) => ({ name, target: "3.15 win-amd64" })) }],
+    { schema: 1, drops: [] },
+    [{ name: "a", rank: 1 }, { name: "b", rank: 2 }, { name: "c", rank: 3 }, { name: "d", rank: 4 }],
+  );
+  assert.equal(text(four), "This week: 4 packages gained a wheel (a, b and c among them).");
+
+  // Two or three packages: all of them are counted, so no names.
+  const two = run(
+    [{ date: "2026-11-21", gained: ["a", "b"].map((name) => ({ name, target: "3.15 win-amd64" })) }],
+    { schema: 1, drops: [] },
+  );
+  assert.equal(text(two), "This week: 2 packages gained a wheel.");
+
+  // Drops only: the count says "packages" itself.
+  const dropsOnly = run([], { schema: 1, drops: [{ date: "2026-11-20", name: "databricks", target: "3.13 pyodide" }] });
+  assert.equal(text(dropsOnly), "This week: 1 package dropped a platform.");
+});

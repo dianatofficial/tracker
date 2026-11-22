@@ -9,7 +9,7 @@
 }
 .examples button:hover, .chip:hover, .action:hover { border-color: var(--text); }
 .examples button:focus-visible, .chip:focus-visible, .action:focus-visible, .lock-pick select:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-#status { min-height: 1.5em; }
+#status { min-height: 1.5em; overflow-wrap: anywhere; }
 #status.error { color: var(--missing); }
 
 .verdict-card { margin-top: 32px; padding: 20px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); }

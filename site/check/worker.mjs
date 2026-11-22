@@ -4,7 +4,7 @@
 // Messages in: {id, type: "load", repo} | {id, type: "check", lockfile, options}. Out: {id, type, ...}.
 
 import { loadPyodide } from "https://cdn.jsdelivr.net/pyodide/v314.0.8/full/pyodide.mjs";
-import { rawUrl, trimProject, trimReleases } from "./check-logic.mjs";
+import { rawUrl, trimProject, trimReleases, projectNameFromMetadata, metadataFiles } from "./check-logic.mjs";
 
 // The wheelgap release the page runs; tests/test_check_driver.py tests driver.py against the same one.
 // When this changes, re-read what that release's pypi._fill_json_data, pypi._newest_matching and suggest._has_wheel
@@ -98,7 +98,7 @@ function forget(py, root) {
   py.pyimport("shutil").rmtree.callKwargs(root, { ignore_errors: true });
 }
 
-async function load(r, id) {
+async function load(r, id, requestedFile = null) {
   const { py, driver } = await ready;
   const ref = r.ref || "HEAD";
   post({ id, type: "progress", stage: "tree" });
@@ -107,6 +107,9 @@ async function load(r, id) {
   );
   const paths = (tree.tree || []).filter((e) => e.type === "blob").map((e) => e.path);
   const plan = JSON.parse(driver.plan(JSON.stringify(paths)));
+  const wanted = requestedFile || r.file || null;
+  // A truncated file list may leave the named file out: fetch it anyway, and a missing one fails by its own name.
+  const fileInTree = Boolean(wanted && (paths.includes(wanted) || tree.truncated));
   const root = `/repos/${id}`;
   const files = [...plan.workflows, ...plan.dockerfiles, ...(plan.python_version ? [plan.python_version] : [])];
   post({ id, type: "progress", stage: "files", count: files.length });
@@ -121,13 +124,24 @@ async function load(r, id) {
   py.FS.mkdirTree(root);
   const detected = JSON.parse(driver.detect(root));
   detected.unreadable.push(...unread);
+  let projectName = null;
+  // #229's requirements files under other names don't count: a lone root pyproject.toml beside them is still read.
+  for (const metaFile of metadataFiles(plan.lockfiles.filter((l) => !l.other), paths)) {
+    try {
+      const text = new TextDecoder().decode(await getText(rawUrl(r, ref, metaFile)));
+      projectName = projectNameFromMetadata(metaFile, text);
+    } catch {
+      // ignore metadata fetch failure; fall back to normal verdict
+    }
+    if (projectName) break;
+  }
   if (id !== latestLoad) {
     forget(py, root);
     throw new Failure("stale", "superseded by a newer load"); // the page has moved on and ignores this
   }
   for (const old of [...loaded.keys()]) forget(py, old);
   loaded.set(root, { ...r, ref, root, fetched: new Set() });
-  return { plan, detected, truncated: Boolean(tree.truncated), ref, root };
+  return { plan, detected, truncated: Boolean(tree.truncated), ref, root, fileInTree, projectName };
 }
 
 // A pyproject.toml is fetched when it's the file to check. wheelgap also reads one beside a lockfile or a
@@ -278,7 +292,7 @@ self.onmessage = async ({ data }) => {
     if (type === "load") {
       latestLoad = id;
       latestCheck = null;
-      post({ id, type: "loaded", ...(await load(data.repo, id)) });
+      post({ id, type: "loaded", ...(await load(data.repo, id, data.file || null)) });
     } else if (type === "check") {
       latestCheck = id;
       const result = await check(id, data.root, data.lockfile, data.options);

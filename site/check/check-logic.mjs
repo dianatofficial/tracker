@@ -22,8 +22,8 @@ export function validRef(ref) {
   return /^[A-Za-z0-9._\/-]{1,200}$/.test(ref) && ref.split("/").every((p) => p && p !== "." && p !== "..");
 }
 
-// "owner/name", a github.com URL (with /tree/REF/DIR or /blob/REF/FILE), or an SSH remote, to {owner, name, ref, dir}.
-// ref and dir are null when the input doesn't name them. Returns null for anything else.
+// "owner/name", a github.com URL (with /tree/REF/DIR or /blob/REF/FILE), or an SSH remote, to {owner, name, ref, dir, file}.
+// ref, dir and file are null when the input doesn't name them. Returns null for anything else.
 export function parseRepo(input) {
   let s = String(input ?? "").trim();
   if (!s || s.length > 500) return null;
@@ -34,18 +34,24 @@ export function parseRepo(input) {
   if (parts.length < 2) return null;
   const owner = parts[0];
   const name = parts[1].replace(/\.git$/i, "");
-  if (!NAME.test(owner) || !NAME.test(name) || owner.startsWith(".") || name === "." || name === "..") return null;
+  // GitHub user and org names have no dots, so "gitlab.com/owner/project" is another host, not a GitHub owner.
+  if (!NAME.test(owner) || !NAME.test(name) || owner.includes(".") || name === "." || name === "..") return null;
   let ref = null;
   let dir = null;
+  let file = null;
   if ((parts[2] === "tree" || parts[2] === "blob") && parts[3]) {
     ref = decodeURIComponent(parts[3]);
     const rest = parts.slice(4).map(decodeURIComponent);
-    if (parts[2] === "blob") rest.pop(); // a file: its folder
+    if (parts[2] === "blob") {
+      file = rest.length ? rest.join("/") : null;
+      rest.pop(); // a file: its folder
+    }
     dir = rest.length ? rest.join("/") : null;
   }
   if (ref !== null && !validRef(ref)) return null;
   if (dir !== null && (dir.split("/").some((p) => p === ".." || p === "") || dir.length > 300)) return null;
-  return { owner, name, ref, dir };
+  if (file !== null && (file.split("/").some((p) => p === ".." || p === "") || file.length > 300)) return null;
+  return { owner, name, ref, dir, file };
 }
 
 // The raw.githubusercontent.com URL of a file in the repo, each path segment encoded.
@@ -92,6 +98,85 @@ export function pickLockfile(lockfiles, dir) {
   return lockfiles.find(inDir) ?? lockfiles[0] ?? null;
 }
 
+// Words in a requirements file's name (requirements-dev.txt, requirements/test.txt) or its folders that say its
+// packages are for the tests, the docs, an example or development, not the project itself: wheelgap's _SIDE_WORDS
+// (src/wheelgap/sources.py on main, after 0.13.0), split the way its _is_side() splits a name.
+const SIDE_WORDS = new Set([
+  "test", "tests", "testing", "example", "examples", "sample", "samples", "demo", "demos", "doc", "docs",
+  "bench", "benchmark", "benchmarks", "fixtures", "templates",
+  "dev", "develop", "development", "lint", "ci", "typing",
+]);
+export function isSideFile(path) {
+  const parts = String(path).split("/");
+  const base = parts.pop();
+  const stem = base.includes(".") ? base.slice(0, base.lastIndexOf(".")) : base;
+  return [...parts, stem].some((part) => part.toLowerCase().split(/[^a-z0-9]+/).some((word) => SIDE_WORDS.has(word)));
+}
+
+// The file the page checks by itself: pickLockfile()'s pick among the exactly-named files, as before; with none of
+// those, the only requirements file under another name (`other`, from plan()), unless its name says it's for
+// development, tests, docs or examples (isSideFile), which `wheelgap DIR` never checks on its own. With several of
+// those, or that one side file, it picks none and returns them in `choose`: which one holds the project's
+// dependencies can't be told from a name, so, like `wheelgap DIR`, the page lists them and the visitor picks.
+// {lock: null, choose: null} when there's nothing at all.
+export function autoPick(lockfiles, dir) {
+  const named = lockfiles.filter((l) => !l.other);
+  if (named.length) return { lock: pickLockfile(named, dir), choose: null };
+  if (lockfiles.length === 1 && !isSideFile(lockfiles[0].path)) return { lock: lockfiles[0], choose: null };
+  return { lock: null, choose: lockfiles.length ? lockfiles : null };
+}
+
+// wheelgap 0.13.0's sources.file_kind, which picks a file's reader by its name: the reader, or null for a name it
+// doesn't read (and a pip report's .json, which this page doesn't offer). Re-check it when worker.mjs's pin changes:
+// later releases read more names (a PEP 723 script's *.py.lock), which 0.13.0 refuses as "don't know how to read".
+const KINDS = { "uv.lock": "uv", "pylock.toml": "pylock", "poetry.lock": "poetry", "pdm.lock": "pdm", "Pipfile.lock": "pipfile", "pixi.lock": "pixi" };
+export function fileKind(path) {
+  const base = String(path ?? "").split("/").pop();
+  if (base === "pyproject.toml") return "pyproject";
+  if (Object.hasOwn(KINDS, base)) return KINDS[base];
+  if (base.startsWith("pylock.") && base.endsWith(".toml")) return "pylock";
+  if (base.startsWith("requirements") && base.endsWith(".lock")) return "requirements";
+  if (base.endsWith(".lock") && base.includes("uv")) return "uv";
+  if (base.endsWith(".txt") || base.endsWith(".in")) return "requirements";
+  return null;
+}
+
+// The readers whose lockfiles list each package's files, so the page checks them offline (driver.py's OFFLINE_KINDS,
+// which decides by the same rule: a pylock.dev.toml is read like a pylock.toml, never as a lookups file).
+const OFFLINE_KINDS = ["uv", "pylock", "poetry", "pdm"];
+
+// Whether a file path not listed by plan() is one wheelgap reads by its name: a lockfile (also in a folder plan()
+// skips, or past its limit), a requirements file (*.txt, *.in) or pyproject.toml.
+export function isReadableFile(path) {
+  return fileKind(path) !== null;
+}
+
+// Pick the file to check when a link or query may have named one explicitly.
+// Returns { lock, lockfiles, auto, notice, choose }. `lockfiles` has the named file added at the end, marked `added` (so the
+// repo's own automatic pick stays first, and the badge never treats it as the default) when it exists in the repo tree and is readable. `notice` says why a named file
+// wasn't checked; the page adds which file it checked instead, since that can still change (withoutUnreadable).
+// With no file named, or one that can't be checked, the page's own pick is autoPick()'s, so `choose` lists the files
+// to ask between when it picks none (lock null); a named file that is checked has choose null.
+export function pickRequestedFile(lockfiles, requested, inTree, dir) {
+  if (!requested) {
+    const pick = autoPick(lockfiles, dir);
+    return { lock: pick.lock, lockfiles, auto: true, notice: null, choose: pick.choose };
+  }
+  const existing = lockfiles.find((l) => l.path === requested);
+  if (existing) {
+    return { lock: existing, lockfiles, auto: false, notice: null, choose: null };
+  }
+  if (inTree && isReadableFile(requested)) {
+    const added = { path: requested, offline: OFFLINE_KINDS.includes(fileKind(requested)), added: true };
+    return { lock: added, lockfiles: [...lockfiles, added], auto: false, notice: null, choose: null };
+  }
+  const notice = !isReadableFile(requested)
+    ? `${requested} isn't a file this page reads.`
+    : `${requested} wasn't found in this repository.`;
+  const pick = autoPick(lockfiles, dir);
+  return { lock: pick.lock, lockfiles, auto: true, notice, choose: pick.choose };
+}
+
 // After wheelgap couldn't read `failed`: the repo's other files to pick from instead, or null to report the error.
 // Only for a pyproject.toml the page picked itself: it's listed without knowing whether it has [project]
 // dependencies to read (many hold only tool settings), so the repo's next file is the better answer. A file the
@@ -101,13 +186,21 @@ export function withoutUnreadable(lockfiles, failed, auto) {
   return auto && failed.split("/").pop() === "pyproject.toml" && rest.length ? rest : null;
 }
 
+// An all-private pyproject has no browser answer. Use the driver's entry count, not private.length: its display
+// names are deduplicated, while listed counts repeated requirements (for example, with different markers).
+export function privatePyprojectReason(result) {
+  return !result.error && result.looked_up && result.lockfile?.split("/").pop() === "pyproject.toml"
+    && result.packages === 0 && result.listed > 0 && result.private_count === result.listed
+    ? "its index or source settings don't identify which packages are from PyPI" : null;
+}
+
 // Why a file's result is no answer, so that withoutUnreadable() may move on from it, or null when the result stands:
-// wheelgap couldn't read it (its error), or it was read and lists no packages at all (a pyproject.toml whose
-// [project] has no dependencies). One whose packages were all skipped, or aren't installed on the targets picked,
-// is an answer.
+// wheelgap couldn't read it, it lists no dependencies, or every pyproject dependency was skipped as private.
+// Other skipped packages, or ones not installed on the targets picked, still constitute an answer.
 export function unreadableReason(result) {
   if (result.kind === "source") return result.error || "wheelgap couldn't read it";
-  return !result.error && result.looked_up && result.listed === 0 ? "it lists no dependencies" : null;
+  if (!result.error && result.looked_up && result.listed === 0) return "it lists no dependencies";
+  return privatePyprojectReason(result);
 }
 
 // A platform's tile, from its counts ({wheel, source, missing, unknown}): how many packages have no wheel there, a ✓
@@ -172,7 +265,7 @@ export function fromQuery(search) {
   const lock = q.get("lock");
   return {
     repo,
-    lockfile: lock && !lock.split("/").includes("..") && lock.length < 300 ? lock : null,
+    lockfile: lock && lock.split("/").every((p) => p && p !== "." && p !== "..") && lock.length < 300 ? lock : null,
     pythons: list("py", (v) => PYTHONS.includes(v) || /^3\.(1[0-9])t?$/.test(v)),
     platforms: list("t", (v) => known.has(v)),
   };
@@ -249,6 +342,92 @@ export function headline(result) {
 export function cliCommand(result, pythons, platforms) {
   const lock = /^[A-Za-z0-9._\/-]+$/.test(result.lockfile) ? result.lockfile : `'${result.lockfile.replace(/'/g, "")}'`;
   return `uvx wheelgap ${lock} -p ${sortPythons(pythons).join(",")} -t ${platforms.join(",")}`;
+}
+
+const PACKAGE_NAME = /^[A-Za-z0-9](?:[A-Za-z0-9._-]{0,98}[A-Za-z0-9])?$/;
+
+// Read the published PyPI package name from a root setup.cfg ([metadata] name) or pyproject.toml ([project] name).
+// Only accepts a plain valid package name (never attr:, file:, or characters a package name can't have). Anything
+// read differently from configparser or TOML (a value continued on the next line, a quoted or dotted key) is null.
+export function projectNameFromMetadata(filename, text) {
+  if (typeof text !== "string") return null;
+  let section = null;
+  if (filename === "setup.cfg") {
+    let key = false; // a key seen in this section: an indented line after it continues its value (configparser)
+    const lines = text.split(/\r?\n/);
+    const indent = (raw) => raw.match(/^\s*/)[0].length;
+    for (let i = 0; i < lines.length; i++) {
+      const raw = lines[i];
+      const line = raw.trim();
+      if (!line || line.startsWith("#") || line.startsWith(";")) continue;
+      if (key && /^\s/.test(raw)) continue;
+      // configparser's section names are case-sensitive and run to the line's last "]"; setuptools reads [metadata].
+      const hdr = line.match(/^\[(.+)\]/);
+      if (hdr) {
+        section = hdr[1];
+        key = false;
+        continue;
+      }
+      key = true;
+      if (section === "metadata") {
+        const m = line.match(/^name\s*[=:]\s*(.*)$/i);
+        if (m) {
+          const val = m[1].trim();
+          if (/^(?:attr|file)\s*:/i.test(val)) return null;
+          // The next line that isn't blank or a comment, indented deeper than the key, continues the value
+          // ("httpie\nevil" to configparser, blank lines in between or not): not a plain name.
+          const next = lines.slice(i + 1).find((l) => l.trim() && !/^\s*[#;]/.test(l));
+          if (next !== undefined && indent(next) > indent(raw)) return null;
+          return PACKAGE_NAME.test(val) ? val : null;
+        }
+      }
+    }
+    return null;
+  }
+  if (filename === "pyproject.toml") {
+    for (const raw of text.split(/\r?\n/)) {
+      const line = raw.trim();
+      if (!line || line.startsWith("#")) continue;
+      // A multi-line string isn't tracked, so a "name = ..." inside one could be read as a key: fail closed.
+      if (line.includes('"""') || line.includes("'''")) return null;
+      // [table] or [[array.of.tables]], with spaces inside the brackets and a comment after, as TOML allows.
+      const hdr = line.match(/^\[(\[?)\s*([^\[\]]*?)\s*\](\]?)\s*(?:#.*)?$/);
+      if (hdr) {
+        section = hdr[1] || hdr[3] ? `[${hdr[2]}]` : hdr[2];
+        continue;
+      }
+      if (line.startsWith("[")) {
+        section = null; // a header this doesn't read (a quoted name): nothing under it is [project]'s
+        continue;
+      }
+      if (section === "project") {
+        const m = line.match(/^name\s*=\s*(?:"([^"\\]+)"|'([^']+)')\s*(?:#.*)?$/);
+        if (m) {
+          const val = (m[1] ?? m[2]).trim();
+          return PACKAGE_NAME.test(val) ? val : null;
+        }
+      }
+    }
+  }
+  return null;
+}
+
+// The root files load() reads a project name from, in order, when the page has nothing else to check: a lone root
+// pyproject.toml (it may fail to read: no [project] table, or dynamic dependencies), then a root setup.cfg. A
+// pyproject.toml with only [build-system] beside a setup.cfg is the usual setuptools layout, so both are tried.
+export function metadataFiles(lockfiles, paths) {
+  const lonePyproject = lockfiles.length === 1 && lockfiles[0].path === "pyproject.toml";
+  if (lockfiles.length && !lonePyproject) return [];
+  return [...(lonePyproject ? ["pyproject.toml"] : []), ...(paths.includes("setup.cfg") ? ["setup.cfg"] : [])];
+}
+
+// The `uvx wheelgap --deps <package>` command for a library published on PyPI.
+export function packageCliCommand(packageName, pythons, platforms) {
+  if (!PACKAGE_NAME.test(String(packageName ?? ""))) return null;
+  const parts = [`uvx wheelgap --deps ${packageName}`];
+  if (pythons?.length) parts.push(`-p ${sortPythons(pythons).join(",")}`);
+  if (platforms?.length) parts.push(`-t ${platforms.join(",")}`);
+  return parts.join(" ");
 }
 
 // Look up a fill the Python driver already matched, for display only.
@@ -387,6 +566,46 @@ export function labVerdict(r) {
 // The PEP 503 name the tracker files packages under.
 export function canonicalName(name) {
   return String(name).toLowerCase().replace(/[-_.]+/g, "-");
+}
+
+// GitHub's own hosts (github.com, gist/api.github.com, raw.githubusercontent.com): not "another host".
+function githubHost(host) {
+  return host === "github.com" || host.endsWith(".github.com") || host === "githubusercontent.com" || host.endsWith(".githubusercontent.com");
+}
+
+function hostHint(host) {
+  const h = host.toLowerCase().replace(/^www\./, "");
+  return !h || githubHost(h) ? null : { kind: "other-host", host: h };
+}
+
+const FORGES = ["gitlab.com", "codeberg.org", "bitbucket.org", "sr.ht", "git.sr.ht", "gitea.com", "sourceforge.net", "salsa.debian.org"];
+
+// Classify an input parseRepo() rejected: a single PyPI package name, a URL on another host, or null.
+export function inputHint(text) {
+  const s = String(text ?? "").trim();
+  if (!s || /\s/.test(s)) return null;
+  const pypi = s.match(/^(?:https?:\/\/)?(?:www\.)?pypi\.org\/(?:project|simple)\/([A-Za-z0-9._-]+)/i);
+  if (pypi) return { kind: "package", name: canonicalName(pypi[1]) };
+  const ssh = s.match(/^(?:ssh:\/\/)?git@([A-Za-z0-9.-]+)[:/]/i);
+  if (ssh) return hostHint(ssh[1]);
+  // A URL with a scheme (https://, git+https://, ssh://), or one without where the first segment is a host.
+  const withScheme = /^[a-z][a-z0-9+.-]*:\/\//i.test(s);
+  const first = s.split("/")[0];
+  if (withScheme || (s.includes("/") && /^[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)+$/.test(first) && /\.[A-Za-z]{2,}$/.test(first))) {
+    try {
+      return hostHint(new URL(withScheme ? s.replace(/^[a-z0-9.-]*\+/i, "") : `https://${s}`).hostname);
+    } catch {
+      return null;
+    }
+  }
+  // A known forge's bare domain (gitlab.com, codeberg.org) is a host; other dotted names (jaraco.net) are packages.
+  const bare = s.toLowerCase().replace(/^www\./, "");
+  if (FORGES.includes(bare)) return hostHint(s);
+  if (githubHost(bare)) return null;
+  if (!s.includes("/") && /^[A-Za-z0-9](?:[A-Za-z0-9._-]{0,98}[A-Za-z0-9])?$/.test(s)) {
+    return { kind: "package", name: canonicalName(s) };
+  }
+  return null;
 }
 
 // The lab result for exactly this release on this target (label like "3.14t win-arm64"), or null: a result for

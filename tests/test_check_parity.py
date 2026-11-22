@@ -361,13 +361,14 @@ def _pixi_lock() -> str:
     return "\n".join(out) + "\n"
 
 
-def _write_requirements(folder: Path) -> None:
-    (folder / "requirements.txt").write_text(REQUIREMENTS, encoding="utf-8")
+def _write_requirements(folder: Path, filename: str = "requirements.txt") -> None:
+    (folder / filename).write_text(REQUIREMENTS, encoding="utf-8")
     (folder / "base.txt").write_text("purewheel==3.1\n", encoding="utf-8")
 
 
 LOOKED_UP = {
     "requirements.txt": _write_requirements,
+    "requirements-dev.txt": lambda folder: _write_requirements(folder, "requirements-dev.txt"),
     "pyproject.toml": lambda folder: (folder / "pyproject.toml").write_text(PYPROJECT, encoding="utf-8"),
     "Pipfile.lock": lambda folder: (folder / "Pipfile.lock").write_text(json.dumps(PIPFILE_LOCK), encoding="utf-8"),
     "pixi.lock": lambda folder: (folder / "pixi.lock").write_text(_pixi_lock(), encoding="utf-8"),
@@ -375,6 +376,7 @@ LOOKED_UP = {
 # What each file leaves unchecked, and why (the CLI's reasons are compared by name only).
 LOOKED_UP_SKIPPED = {
     "requirements.txt": [],
+    "requirements-dev.txt": [],
     "pyproject.toml": [],
     "Pipfile.lock": ["corp-utils", "gitdep", "localpkg"],
     "pixi.lock": ["python"],

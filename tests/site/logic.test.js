@@ -394,3 +394,127 @@ test("blockersForTarget rejects malformed entries and unsafe names (#93)", () =>
   assert.equal(blockers[0].count, 5);
   assert.deepEqual(blockers[0].examples, ["valid-dep"]);
 });
+
+test("weekSummary counts gains and drops in the 7-day window, deduplicates packages, and skips malformed entries", () => {
+  const changes = [
+    // Older than 7 days (diff = 7 from 2026-11-21 -> excluded)
+    { date: "2026-11-14", gained: [{ name: "oldpkg", target: "3.15 linux-x86_64" }] },
+    // Window edge (diff = 6 from 2026-11-21 -> included)
+    { date: "2026-11-15", gained: [{ name: "lxml", target: "3.15 win-amd64" }] },
+    // Same package on multiple targets counts once for gainedPackages, twice for gainedPairs
+    {
+      date: "2026-11-21",
+      gained: [
+        { name: "numpy", target: "3.15 win-amd64" },
+        { name: "numpy", target: "3.15 win-arm64" },
+        { name: "grpcio", target: "3.15 linux-x86_64" },
+        { name: "lowrank", target: "3.15 linux-x86_64" },
+        null,
+        { name: "", target: "3.15 linux-x86_64" },
+        { name: "notarget" },
+      ],
+    },
+    null,
+    { date: "not-a-date", gained: [{ name: "bad", target: "3.15 linux-x86_64" }] },
+  ];
+  const drops = {
+    schema: 1,
+    drops: [
+      { date: "2026-11-14", name: "olddrop", target: "3.13 pyodide" },
+      { date: "2026-11-15", name: "edge-drop", target: "3.13 pyodide" },
+      { date: "2026-11-20", name: "databricks", target: "3.13 pyodide" },
+      { date: "2026-11-20", name: "databricks", target: "3.14 pyodide" },
+      null,
+      { date: "2026-11-20", name: "" },
+    ],
+  };
+  const ranks = [
+    { name: "numpy", rank: 1 },
+    { name: "grpcio", rank: 12 },
+    { name: "lxml", rank: 40 },
+    { name: "lowrank", rank: 900 },
+  ];
+
+  assert.deepEqual(logic.weekSummary(changes, drops, "2026-11-21", ranks), {
+    gainedPackages: 4,
+    gainedPairs: 5,
+    droppedPackages: 2,
+    topGained: ["numpy", "grpcio", "lxml"],
+  });
+
+  // Empty window
+  assert.deepEqual(logic.weekSummary(changes, drops, "2026-12-10", ranks), {
+    gainedPackages: 0,
+    gainedPairs: 0,
+    droppedPackages: 0,
+    topGained: [],
+  });
+});
+
+test("weekSummary leaves out gains that only undo a recent loss, as the new/ page does, and merges name spellings", () => {
+  const changes = [
+    // Lost before the window opens, regained inside it: the gain only undoes the loss.
+    { date: "2026-11-13", gained: [], lost: [{ name: "chdb-core", version: "26.11.1", target: "3.14 linux-x86_64" }] },
+    // Lost and regained inside the window: also left out. A different target is a real gain.
+    { date: "2026-11-16", gained: [], lost: [{ name: "faiss-cpu", version: "1.9.0", target: "3.14 win-amd64" }] },
+    {
+      date: "2026-11-17",
+      gained: [
+        { name: "chdb_core", version: "26.11.1", target: "3.14 linux-x86_64" },
+        { name: "faiss-cpu", version: "1.9.0", target: "3.14 win-amd64" },
+        { name: "faiss-cpu", version: "1.9.0", target: "3.14 win-arm64" },
+        // Same package, a new version: not an undo.
+        { name: "Foo.Bar", version: "2.0", target: "3.15 win-amd64" },
+      ],
+    },
+    // A second spelling of the same package on another night counts once, keeping the first spelling.
+    { date: "2026-11-18", gained: [{ name: "foo_bar", version: "2.0", target: "3.15 linux-x86_64" }], lost: [] },
+    // A loss more than 7 days before the gain doesn't cancel it.
+    { date: "2026-11-01", gained: [], lost: [{ name: "late", version: "1.0", target: "3.14 linux-x86_64" }] },
+    { date: "2026-11-19", gained: [{ name: "late", version: "1.0", target: "3.14 linux-x86_64" }] },
+  ];
+  assert.deepEqual(logic.weekSummary(changes, { schema: 1, drops: [] }, "2026-11-21", [{ name: "foo-bar", rank: 5 }]), {
+    gainedPackages: 3,
+    gainedPairs: 4,
+    droppedPackages: 0,
+    // Ranked first, then packages missing from the scan by name.
+    topGained: ["Foo.Bar", "faiss-cpu", "late"],
+  });
+
+  // One loss cancels only one gain: a second regain of the same wheel still counts.
+  const twice = [
+    { date: "2026-11-16", gained: [], lost: [{ name: "x", version: "1", target: "t" }] },
+    { date: "2026-11-17", gained: [{ name: "x", version: "1", target: "t" }] },
+    { date: "2026-11-18", gained: [{ name: "x", version: "1", target: "t" }] },
+  ];
+  assert.equal(logic.weekSummary(twice, { schema: 1, drops: [] }, "2026-11-21").gainedPackages, 1);
+});
+
+test("weekSummary's undo window has new/'s edges: a loss 0 to 7 days before a gain cancels it, 8 or a day after doesn't", () => {
+  // As filter_undo_gains in scripts/build_new_wheels.py: 0 <= (gain date - loss date).days <= 7.
+  const gainOn = "2026-11-20";
+  const counted = (lossDate) => logic.weekSummary(
+    [
+      { date: lossDate, gained: [], lost: [{ name: "x", version: "1", target: "3.14 linux-x86_64" }] },
+      { date: gainOn, gained: [{ name: "x", version: "1", target: "3.14 linux-x86_64" }], lost: [] },
+    ],
+    { schema: 1, drops: [] },
+    "2026-11-21",
+  ).gainedPackages;
+  assert.equal(counted("2026-11-13"), 0, "7 days before: the gain only undoes the loss");
+  assert.equal(counted("2026-11-12"), 1, "8 days before: a real gain");
+  assert.equal(counted("2026-11-20"), 0, "the same night: cancelled, as 0 days is in the window");
+  assert.equal(counted("2026-11-21"), 1, "a day after the gain: a later loss never cancels an earlier gain");
+  // The window crosses a month end by days, not by the day of the month.
+  const across = logic.weekSummary(
+    [
+      { date: "2026-11-24", gained: [], lost: [{ name: "y", version: "2", target: "3.14 win-arm64" }] },
+      { date: "2026-12-01", gained: [{ name: "y", version: "2", target: "3.14 win-arm64" }], lost: [] },
+      { date: "2026-11-23", gained: [], lost: [{ name: "z", version: "2", target: "3.14 win-arm64" }] },
+      { date: "2026-12-01", gained: [{ name: "z", version: "2", target: "3.14 win-arm64" }], lost: [] },
+    ],
+    { schema: 1, drops: [] },
+    "2026-12-01",
+  );
+  assert.deepEqual([across.gainedPackages, across.topGained], [1, ["z"]]);
+});

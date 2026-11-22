@@ -332,5 +332,22 @@
    "target": "3.15 win-arm64"
   }
  ],
- "waiting": []
+ "waiting": [
+  {
+   "name": "sherpa-onnx",
+   "from": "2.0.2",
+   "version": "2.0.3",
+   "targets": [
+    "3.13 win-amd64",
+    "3.13 win-arm64",
+    "3.14 linux-x86_64",
+    "3.14 macos-arm64",
+    "3.14 win-amd64",
+    "3.14 win-arm64",
+    "3.15 win-amd64",
+    "3.15 win-arm64"
+   ],
+   "since": "2026-11-22T11:33:47+00:00"
+  }
+ ]
 }

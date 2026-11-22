@@ -135,6 +135,78 @@ def test_plan_picks_files_like_suggest_targets():
     assert plan["python_version"] == ".python-version"
 
 
+def test_plan_lists_other_requirements_filenames_after_every_exactly_named_file():
+    paths = [
+        "pyproject.toml",
+        "constraints.txt",
+        "constraints-dev.txt",
+        "requirements/constraints.txt",
+        "requirements/README.txt",
+        "requirements/docs.txt",
+        "requirements/test.txt",
+        "requirements/default.txt",
+        "requirements/base.txt",
+        "requirements/Notes.txt",
+        "Requirements-dev.TXT",
+        "tests/requirements.txt",
+        "tests/requirements/default.txt",
+        "requirements-dev.txt",
+        "prod-requirements.txt",
+        "extra_requirements.txt",
+    ]
+    plan = json.loads(driver.plan(json.dumps(paths)))
+    # No order by how runtime-like a name sounds: autoPick() in check-logic.mjs asks which one when there are several,
+    # as `wheelgap DIR` lists them and never picks one.
+    assert plan["lockfiles"] == [
+        {"path": "pyproject.toml", "offline": False},
+        *(
+            {"path": p, "offline": False, "other": True}
+            for p in [
+                "extra_requirements.txt",
+                "prod-requirements.txt",
+                "requirements-dev.txt",
+                "requirements/base.txt",
+                "requirements/default.txt",
+                "requirements/docs.txt",
+                "requirements/test.txt",
+            ]
+        ),
+    ]
+
+    # A root requirements.txt still comes first ahead of other root requirements files.
+    with_root = json.loads(driver.plan(json.dumps(["requirements-dev.txt", "requirements.txt", "requirements/default.txt"])))
+    assert [entry["path"] for entry in with_root["lockfiles"]] == [
+        "requirements.txt",
+        "requirements-dev.txt",
+        "requirements/default.txt",
+    ]
+    assert "other" not in with_root["lockfiles"][0]
+    # And an exactly-named file deeper in the repo still outranks them, so the page's pick is what it was before.
+    nested = json.loads(driver.plan(json.dumps(["requirements-dev.txt", "backend/uv.lock", "backend/pyproject.toml"])))
+    assert [entry["path"] for entry in nested["lockfiles"]] == ["backend/uv.lock", "backend/pyproject.toml", "requirements-dev.txt"]
+
+
+def test_needs_and_check_read_nested_requirements_file_with_include(tmp_path):
+    req_dir = tmp_path / "requirements"
+    req_dir.mkdir()
+    (req_dir / "base.txt").write_text("-r common.txt\npurewheel==3.1\n", encoding="utf-8")
+    first = json.loads(driver.needs(str(tmp_path), "requirements/base.txt"))
+    assert first["kind"] == "include" and first["path"] == "requirements/common.txt"
+
+    (req_dir / "common.txt").write_text("fastlib==2.0.0\n", encoding="utf-8")
+    needed = json.loads(driver.needs(str(tmp_path), "requirements/base.txt"))
+    assert {(l["name"], l["version"]) for l in needed["lookups"]} == {("fastlib", "2.0.0"), ("purewheel", "3.1")}
+
+    lookups = {
+        "purewheel==3.1": {"info": {"version": "3.1"}, "urls": [{"filename": "purewheel-3.1-py3-none-any.whl"}]},
+        "fastlib==2.0.0": {"info": {"version": "2.0.0"}, "urls": [{"filename": "fastlib-2.0.0.tar.gz"}]},
+    }
+    res = json.loads(driver.check(str(tmp_path), "requirements/base.txt", options(), json.dumps(lookups)))
+    assert res["looked_up"] is True
+    assert res["packages"] == 2
+    assert [row["name"] for row in res["rows"]] == ["fastlib"]
+
+
 def test_detect_reads_ci_and_dockerfiles(repo):
     d = json.loads(driver.detect(str(repo)))
     assert d["platforms_from"] == "ci" and d["python_from"] == "ci"
@@ -180,6 +252,50 @@ def test_check_doesnt_count_pythons_outside_the_lock(repo):
     assert r["outside_lock"] == ["3.14"]
     assert all(g.startswith("3.13 ") for row in r["rows"] for g in row["gaps"])
     assert r["per_target"]["3.14 linux-x86_64"] == {"wheel": 0, "source": 0, "missing": 0, "unknown": 0}
+
+
+PYLOCK = """\
+lock-version = "1.0"
+created-by = "pip"
+requires-python = ">=3.13, <3.14"
+
+[[packages]]
+name = "fastlib"
+version = "2.0.0"
+wheels = [
+    { name = "fastlib-2.0.0-cp313-cp313-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", url = "https://files.pythonhosted.org/packages/aa/fastlib-2.0.0-cp313-cp313-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hashes = { sha256 = "00" } },
+]
+"""
+
+
+@pytest.mark.parametrize(
+    ("name", "text"),
+    [
+        ("uv-py312.lock", LOCK.replace('">=3.13"', '">=3.13, <3.14"')),
+        ("envs/pylock.dev.toml", PYLOCK),
+    ],
+)
+def test_a_lockfile_named_by_its_reader_is_checked_offline(repo, name, text):
+    # A link can name a lockfile plan() doesn't list. wheelgap reads it by the reader its name picks (file_kind):
+    # checked as a lookups file, the Python its lock leaves out (3.14) would show false gaps, not `outside_lock`.
+    (repo / name).parent.mkdir(parents=True, exist_ok=True)
+    (repo / name).write_text(text, encoding="utf-8")
+    assert json.loads(driver.needs(str(repo), name)) == {"lookups": [], "total": 0}
+    r = json.loads(driver.check(str(repo), name, options(pythons=["3.13", "3.14"]), "{}"))
+    assert "error" not in r, r
+    assert r["looked_up"] is False and r["outside_lock"] == ["3.14"]
+    assert all(g.startswith("3.13 ") for row in r["rows"] for g in row["gaps"])
+    assert r["per_target"]["3.14 linux-x86_64"] == {"wheel": 0, "source": 0, "missing": 0, "unknown": 0}
+
+
+def test_offline_follows_the_reader_not_the_exact_name():
+    offline = {
+        "uv.lock": True, "a/pylock.toml": True, "poetry.lock": True, "pdm.lock": True, "pylock.dev.toml": True,
+        "uv-py312.lock": True, "Pipfile.lock": False, "pixi.lock": False, "pyproject.toml": False,
+        "requirements.txt": False, "requirements-dev.lock": False, "requirements.uv.lock": False, "dev.in": False,
+        "script.py.lock": False, "README.md": False,
+    }
+    assert {p: driver._reads_offline(p) for p in offline} == offline
 
 
 def test_check_refuses_lockfiles_that_need_an_index(repo):
@@ -346,6 +462,51 @@ def test_needs_reads_a_pyprojects_direct_requirements(tmp_path):
     )
     n = json.loads(driver.needs(str(tmp_path), "pyproject.toml"))
     assert n["lookups"] == [{"name": "numpy", "version": "2.3.4"}]
+
+
+@pytest.mark.parametrize("settings", [
+    '[tool.uv.sources]\nmylib = { workspace = true }\n',
+    '[[tool.uv.index]]\nurl = "https://example.invalid/simple"\n',
+])
+def test_pyproject_with_other_sources_reports_every_private_dependency(tmp_path, settings):
+    (tmp_path / "pyproject.toml").write_text(
+        '[project]\nname = "myapp"\ndependencies = ["fastapi", "numpy", "mylib"]\n' + settings,
+        encoding="utf-8",
+    )
+    assert json.loads(driver.needs(str(tmp_path), "pyproject.toml"))["lookups"] == []
+    r = json.loads(driver.check(str(tmp_path), "pyproject.toml", options(), "{}"))
+    assert (r["listed"], r["packages"], r["private_count"]) == (3, 0, 3)
+    assert r["private"] == r["skipped"] == ["fastapi", "mylib", "numpy"]
+    assert r["looked_up"] is True and r["rows"] == []
+
+
+def test_private_count_counts_entries_not_distinct_names(tmp_path):
+    (tmp_path / "pyproject.toml").write_text(
+        '''[project]
+name = "demo"
+dependencies = ['numpy; python_version < "3.14"', 'numpy; python_version >= "3.14"']
+[tool.uv.sources]
+demo = { workspace = true }
+''', encoding="utf-8",
+    )
+    assert json.loads(driver.needs(str(tmp_path), "pyproject.toml"))["lookups"] == []
+    r = json.loads(driver.check(str(tmp_path), "pyproject.toml", options(), "{}"))
+    assert (r["listed"], r["packages"], r["private_count"]) == (2, 0, 2)
+    assert r["private"] == r["skipped"] == ["numpy"]
+
+
+def test_private_count_does_not_include_other_skipped_packages(tmp_path):
+    (tmp_path / "pyproject.toml").write_text(
+        '''[project]
+name = "demo"
+dependencies = ["numpy", "localpkg @ file:///localpkg"]
+[tool.uv.sources]
+demo = { workspace = true }
+''', encoding="utf-8",
+    )
+    r = json.loads(driver.check(str(tmp_path), "pyproject.toml", options(), "{}"))
+    assert (r["listed"], r["packages"], r["private_count"]) == (2, 0, 1)
+    assert r["private"] == ["numpy"] and r["skipped"] == ["localpkg", "numpy"]
 
 
 def test_needs_names_a_missing_include_and_works_once_its_fetched(tmp_path):
@@ -662,8 +823,7 @@ def test_trimming_preserves_empty_lists_and_range_fallback(tmp_path, releases):
 
 
 def test_the_result_counts_the_packages_a_file_lists(tmp_path):
-    # The page moves on from a pyproject.toml it picked itself only when it lists nothing: not when what it lists
-    # isn't installed on the targets picked, which is an answer.
+    # No dependencies is different from dependencies that aren't installed on the targets picked, which is an answer.
     (tmp_path / "pyproject.toml").write_text('[project]\nname = "demo"\nversion = "0.1.0"\n', encoding="utf-8")
     r = json.loads(driver.check(str(tmp_path), "pyproject.toml", options(), "{}"))
     assert "error" not in r and (r["listed"], r["packages"], r["skipped"], r["rows"]) == (0, 0, [], [])
@@ -673,3 +833,4 @@ def test_the_result_counts_the_packages_a_file_lists(tmp_path):
     )
     r = json.loads(driver.check(str(tmp_path), "pyproject.toml", options(), "{}"))
     assert (r["listed"], r["packages"], r["skipped"], r["rows"]) == (1, 0, [], [])
+    assert r["private_count"] == 0

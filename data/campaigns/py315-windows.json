@@ -1,0 +1,19 @@
+{
+  "schema": 1,
+  "campaign": "py315-windows",
+  "target": "3.15 win-amd64",
+  "top": 500,
+  "start": "2026-11-22",
+  "recorded": "2026-11-22",
+  "wheelgap": "0.9.0",
+  "compare": "python",
+  "packages": [
+    {"name": "zstandard", "rank": 173, "status": "source"},
+    {"name": "onnxruntime", "rank": 285, "status": "missing"},
+    {"name": "lz4", "rank": 319, "status": "source"},
+    {"name": "fastuuid", "rank": 334, "status": "source"},
+    {"name": "ruamel-yaml-clib", "rank": 376, "status": "source"},
+    {"name": "tree-sitter", "rank": 480, "status": "source"},
+    {"name": "ddtrace", "rank": 486, "status": "source"}
+  ]
+}
